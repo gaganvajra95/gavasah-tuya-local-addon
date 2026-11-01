@@ -34,11 +34,11 @@ class TuyaDevice extends EventEmitter {
     this.heartbeatTimer = null;
     this.reconnectTimer = null;
     
-    // Per sub-device Data Point cache
+    // Per sub-device Data Point cache with verified hardware schema (DP 20, 22, 23)
     this.subDevices = {
-      'dali_0': { devId: '010008020000', dps: { '1': false, '2': 1000, '3': 500 } },
-      'dali_1': { devId: '010008020001', dps: { '1': false, '2': 1000, '3': 500 } },
-      'dali_2': { devId: '010006000002', dps: { '1': false, '2': 1000 } }
+      'dali_0': { devId: '010008020000', dps: { '20': false, '22': 1000, '23': 500 } },
+      'dali_1': { devId: '010008020001', dps: { '20': false, '22': 1000, '23': 500 } },
+      'dali_2': { devId: '010006000002', dps: { '20': false, '22': 1000 } }
     };
 
     this.dps = {};                            // Gateway root DPs
@@ -73,7 +73,7 @@ class TuyaDevice extends EventEmitter {
 
     this.socket.on('error', (err) => {
       this.emit('log', `[${this.name}] Socket error: ${err.message}`);
-      this.emit('error', err);
+      // Safely handle error without crashing EventEmitter
     });
 
     this.socket.on('close', () => {
@@ -133,24 +133,19 @@ class TuyaDevice extends EventEmitter {
         timestamp: Date.now()
       });
 
-      // Handle unsolicited STATUS push (0x08) or CONTROL ACK (0x07)
+      // Handle unsolicited STATUS push (0x08) from mobile app or physical wall switch
       if (decoded.payload && typeof decoded.payload === 'object') {
-        const receivedDevId = decoded.payload.devId || decoded.payload.cid;
+        const receivedDevId = decoded.payload.cid || decoded.payload.devId;
         const receivedDps = decoded.payload.dps || {};
         const subId = SUB_DEVICE_MAP[receivedDevId] || 'dali_0';
 
         if (this.subDevices[subId]) {
-          let hasChanges = false;
           for (const [dpId, val] of Object.entries(receivedDps)) {
-            if (this.subDevices[subId].dps[dpId] !== val) {
-              this.subDevices[subId].dps[dpId] = val;
-              hasChanges = true;
-              this.emit('dp-update', { id: this.id, subId, dp: dpId, value: val });
-            }
+            this.subDevices[subId].dps[dpId] = val;
+            this.emit('dp-update', { id: this.id, subId, dp: dpId, value: val });
           }
-          if (hasChanges) {
-            this.emit('status', { id: this.id, subId, dps: { ...this.subDevices[subId].dps } });
-          }
+          this.emit('log', `[${this.name}] 2-Way Update from Gateway [${subId}]: ${JSON.stringify(receivedDps)}`);
+          this.emit('status', { id: this.id, subId, dps: { ...this.subDevices[subId].dps } });
         }
       }
     } catch (err) {
@@ -166,12 +161,13 @@ class TuyaDevice extends EventEmitter {
       throw new Error(`Device ${this.name} is not connected over LAN.`);
     }
 
-    // Determine target sub-device devId
+    // Determine target sub-device devId and cid
     let targetDevId = SUB_DEVICE_MAP[subId] || subId || this.id;
 
     const payload = {
       gwId: this.id,
       devId: targetDevId,
+      cid: targetDevId,
       uid: this.id,
       t: Math.floor(Date.now() / 1000),
       dps: dps
@@ -180,8 +176,10 @@ class TuyaDevice extends EventEmitter {
     const frame = encodeFrame(COMMANDS.CONTROL, payload, this.key, this.version, this.seq++);
     this.send(frame, COMMANDS.CONTROL, payload);
 
-    // Optimistically update local cache and emit state
     const resolvedSub = SUB_DEVICE_MAP[targetDevId] || subId;
+    this.emit('log', `[${this.name}] TX Command -> [${resolvedSub}] (${targetDevId}): ${JSON.stringify(dps)}`);
+
+    // Optimistically update local cache and emit state
     if (this.subDevices[resolvedSub]) {
       for (const [k, v] of Object.entries(dps)) {
         this.subDevices[resolvedSub].dps[k] = v;

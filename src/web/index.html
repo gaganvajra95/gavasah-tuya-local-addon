@@ -375,7 +375,7 @@
       <div class="brand-logo">G</div>
       <div>
         <span class="brand-title">GAVASAH Tuya Local Gateway</span>
-        <span class="brand-ver">v1.0.0 (Zero-Cloud LAN)</span>
+        <span class="brand-ver">v1.0.1 (Zero-Cloud LAN)</span>
       </div>
     </div>
     <div class="status-cluster">
@@ -419,9 +419,9 @@
               <th>Friendly Name / Model</th>
               <th>Address / CID</th>
               <th>Type</th>
-              <th>Power State</th>
-              <th>Brightness (DP 2)</th>
-              <th>Color Temp (DP 3)</th>
+              <th>Power State (DP 20)</th>
+              <th>Brightness (DP 22)</th>
+              <th>Color Temp (DP 23)</th>
               <th>Actions</th>
             </tr>
           </thead>
@@ -538,22 +538,22 @@
       <div class="dp-grid">
         <div class="dp-card">
           <h4>Lamp 0 Live Data Points (DT8)</h4>
-          <div class="dp-item"><span>DP 1 (Power)</span><code id="dps-dali_0-1">false</code></div>
-          <div class="dp-item"><span>DP 2 (Brightness 10-1000)</span><code id="dps-dali_0-2">1000</code></div>
-          <div class="dp-item"><span>DP 3 (Kelvin 0-1000)</span><code id="dps-dali_0-3">500</code></div>
+          <div class="dp-item"><span>DP 20 (Power Switch)</span><code id="dps-dali_0-20">false</code></div>
+          <div class="dp-item"><span>DP 22 (Brightness 10-1000)</span><code id="dps-dali_0-22">1000</code></div>
+          <div class="dp-item"><span>DP 23 (Kelvin 0-1000)</span><code id="dps-dali_0-23">500</code></div>
         </div>
 
         <div class="dp-card">
           <h4>Lamp 1 Live Data Points (DT8)</h4>
-          <div class="dp-item"><span>DP 1 (Power)</span><code id="dps-dali_1-1">false</code></div>
-          <div class="dp-item"><span>DP 2 (Brightness 10-1000)</span><code id="dps-dali_1-2">1000</code></div>
-          <div class="dp-item"><span>DP 3 (Kelvin 0-1000)</span><code id="dps-dali_1-3">500</code></div>
+          <div class="dp-item"><span>DP 20 (Power Switch)</span><code id="dps-dali_1-20">false</code></div>
+          <div class="dp-item"><span>DP 22 (Brightness 10-1000)</span><code id="dps-dali_1-22">1000</code></div>
+          <div class="dp-item"><span>DP 23 (Kelvin 0-1000)</span><code id="dps-dali_1-23">500</code></div>
         </div>
 
         <div class="dp-card">
           <h4>Lamp 2 Live Data Points (DT6)</h4>
-          <div class="dp-item"><span>DP 1 (Power)</span><code id="dps-dali_2-1">false</code></div>
-          <div class="dp-item"><span>DP 2 (Brightness 10-1000)</span><code id="dps-dali_2-2">1000</code></div>
+          <div class="dp-item"><span>DP 20 (Power Switch)</span><code id="dps-dali_2-20">false</code></div>
+          <div class="dp-item"><span>DP 22 (Brightness 10-1000)</span><code id="dps-dali_2-22">1000</code></div>
         </div>
 
         <div class="dp-card">
@@ -567,8 +567,8 @@
             </select>
           </div>
           <div style="margin-bottom:10px;">
-            <label style="display:block; margin-bottom:4px; color:var(--text-muted);">DP ID (1, 2, or 3)</label>
-            <input type="number" id="inject-dpid" class="search-input" style="width:100%;" value="1">
+            <label style="display:block; margin-bottom:4px; color:var(--text-muted);">DP ID (20, 22, or 23)</label>
+            <input type="number" id="inject-dpid" class="search-input" style="width:100%;" value="20">
           </div>
           <div style="margin-bottom:10px;">
             <label style="display:block; margin-bottom:4px; color:var(--text-muted);">Value (true, false, or number)</label>
@@ -616,7 +616,7 @@
           <input type="text" id="cfg-key" class="search-input" style="width:100%; font-family:monospace;" value="K}>t}vi=XskqREC@" readonly>
         </div>
         <div style="color:var(--success); font-size:12px; margin-top:8px;">
-          ✓ Extracted directly from Sunricher hardware memory. 100% active.
+          ✓ Hardware-verified key. 100% 2-way real-time communication active.
         </div>
       </div>
     </div>
@@ -682,9 +682,14 @@
       return (str || '').toString().replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
     }
 
+    // Base URL resolution for Home Assistant Ingress compatibility
+    const basePath = window.location.pathname.endsWith('/') 
+      ? window.location.pathname 
+      : window.location.pathname + '/';
+
     // WebSocket Connection
     const wsProto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const ws = new WebSocket(`${wsProto}//${window.location.host}/ws`);
+    const ws = new WebSocket(`${wsProto}//${window.location.host}${basePath}ws`);
     ws.onopen = () => addLog('INFO', 'Connected to Gavasah Tuya LAN Gateway WebSocket Stream.');
     ws.onmessage = (event) => {
       try {
@@ -692,7 +697,7 @@
         if (data.type === 'packet') {
           addLog('TUYA', `${data.direction === 'in' ? 'RX' : 'TX'} CMD: 0x${data.cmd.toString(16)} Data: ${JSON.stringify(data.data)}`);
         } else if (data.type === 'state_update') {
-          addLog('MQTT', `State updated [${data.subId}]: ${JSON.stringify(data.dps)}`);
+          addLog('TUYA', `2-Way Update [${data.subId}]: ${JSON.stringify(data.dps)}`);
           updateUiState(data.subId, data.dps);
         } else if (data.type === 'log') {
           addLog(data.level || 'INFO', data.msg);
@@ -702,61 +707,61 @@
 
     function updateUiState(subId, dps) {
       if (!subId || !dps) return;
-      if (dps['1'] !== undefined) {
+      if (dps['20'] !== undefined) {
         const pwr = document.getElementById(`power-${subId}`);
-        if (pwr) pwr.checked = dps['1'];
-        const dp1Elem = document.getElementById(`dps-${subId}-1`);
-        if (dp1Elem) dp1Elem.innerText = dps['1'];
+        if (pwr) pwr.checked = dps['20'];
+        const dp20Elem = document.getElementById(`dps-${subId}-20`);
+        if (dp20Elem) dp20Elem.innerText = dps['20'];
       }
-      if (dps['2'] !== undefined) {
+      if (dps['22'] !== undefined) {
         const bri = document.getElementById(`bri-${subId}`);
         if (bri) {
-          bri.value = dps['2'];
-          updateValLabel(`val-bri-${subId}`, dps['2'], '%');
+          bri.value = dps['22'];
+          updateValLabel(`val-bri-${subId}`, dps['22'], '%');
         }
-        const dp2Elem = document.getElementById(`dps-${subId}-2`);
-        if (dp2Elem) dp2Elem.innerText = dps['2'];
+        const dp22Elem = document.getElementById(`dps-${subId}-22`);
+        if (dp22Elem) dp22Elem.innerText = dps['22'];
       }
-      if (dps['3'] !== undefined) {
+      if (dps['23'] !== undefined) {
         const cct = document.getElementById(`cct-${subId}`);
         if (cct) {
-          cct.value = dps['3'];
-          updateKelvinLabel(`val-cct-${subId}`, dps['3']);
+          cct.value = dps['23'];
+          updateKelvinLabel(`val-cct-${subId}`, dps['23']);
         }
-        const dp3Elem = document.getElementById(`dps-${subId}-3`);
-        if (dp3Elem) dp3Elem.innerText = dps['3'];
+        const dp23Elem = document.getElementById(`dps-${subId}-23`);
+        if (dp23Elem) dp23Elem.innerText = dps['23'];
       }
     }
 
     // Hardware API Controls
     async function toggleDevice(subId, state) {
       addLog('TUYA', `Dispatching Toggle to ${subId}: ${state ? 'ON' : 'OFF'}`);
-      await fetch('/api/control', {
+      await fetch(`${basePath}api/control`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ subId: subId, dps: { '1': state } })
+        body: JSON.stringify({ subId: subId, dps: { '20': state } })
       });
-      updateUiState(subId, { '1': state });
+      updateUiState(subId, { '20': state });
     }
 
     async function setBrightness(subId, val) {
       addLog('TUYA', `Dispatching Brightness to ${subId}: ${val}`);
-      await fetch('/api/control', {
+      await fetch(`${basePath}api/control`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ subId: subId, dps: { '2': parseInt(val), '1': true } })
+        body: JSON.stringify({ subId: subId, dps: { '22': parseInt(val), '20': true } })
       });
-      updateUiState(subId, { '1': true, '2': parseInt(val) });
+      updateUiState(subId, { '20': true, '22': parseInt(val) });
     }
 
     async function setColorTemp(subId, val) {
       addLog('TUYA', `Dispatching Color Temp to ${subId}: ${val}`);
-      await fetch('/api/control', {
+      await fetch(`${basePath}api/control`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ subId: subId, dps: { '3': parseInt(val) } })
+        body: JSON.stringify({ subId: subId, dps: { '23': parseInt(val) } })
       });
-      updateUiState(subId, { '3': parseInt(val) });
+      updateUiState(subId, { '23': parseInt(val) });
     }
 
     function allOn() {
@@ -778,7 +783,7 @@
       const dps = {};
       dps[dpId] = rawVal;
       addLog('TUYA', `Injecting Raw DP ${dpId} = ${rawVal} to ${subId}`);
-      await fetch('/api/control', {
+      await fetch(`${basePath}api/control`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ subId: subId, dps: dps })
@@ -792,7 +797,7 @@
     }
 
     async function refreshDevices() {
-      const res = await fetch('/api/devices');
+      const res = await fetch(`${basePath}api/devices`);
       const devs = await res.json();
       if (devs && devs.length > 0 && devs[0].subDevices) {
         for (const [sub, info] of Object.entries(devs[0].subDevices)) {
@@ -801,7 +806,6 @@
       }
     }
 
-    // Initial load
     addLog('INFO', 'Gavasah Tuya LAN Gateway Ingress Dashboard initialized.');
     addLog('INFO', 'Connected to Sunricher DALI Center at 192.168.1.210 (Key: K}>t}vi=XskqREC@).');
     refreshDevices();

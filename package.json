@@ -1,6 +1,6 @@
 {
   "name": "gavasah-tuya-local",
-  "version": "1.0.0",
+  "version": "1.0.2",
   "description": "Gavasah Tuya LAN Gateway Add-on for Home Assistant",
   "main": "src/server.js",
   "scripts": {

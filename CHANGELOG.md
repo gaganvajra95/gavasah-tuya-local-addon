@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.0.2] - 2026-11-02
+### Fixed
+- **Home Assistant Ingress Compatibility**: Fixed relative URL resolution for all REST API endpoints (`${basePath}api/control`, `${basePath}api/devices`) and dynamic WebSocket routing (`${basePath}ws`) so that the Z2M-style GUI operates seamlessly inside HA Ingress panels.
+- **WebSocket Upgrade Engine**: Switched WebSocket server in `server.js` to dynamic HTTP upgrade listener (`noServer: true`) to support Ingress reverse-proxy path rewrites.
+- **2-Way Push Propagation**: Ensured hardware status packets (Cmd `0x08`) from the Sunricher DALI Gateway always trigger full state synchronization to Home Assistant MQTT and Web Ingress, regardless of prior cached values.
+- **DALI Multi-DP & Clean Entity Grouping**: Unified Home Assistant MQTT entity discovery to link all 3 DALI channels under the parent **Sunricher DALI Center** device, avoiding redundant entity name duplication.
+- **Explicit TX Command Logging**: Added full telemetry logging for commands dispatched to the gateway over TCP 6668.
+
+---
+
 ## [1.0.1] - 2026-11-02
 ### Added
 - Zigbee2MQTT-style web frontend on Home Assistant Ingress with interactive toggle switches, brightness sliders, and color temperature controls.

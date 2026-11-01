@@ -50,13 +50,25 @@ function crc32(buf) {
 }
 
 /**
- * AES-128-ECB Decryption
+ * AES-128-ECB Decryption (Robust PKCS#7 handling)
  */
 function decryptECB(encryptedBuffer, key) {
   const cipherKey = Buffer.isBuffer(key) ? key : Buffer.from(key, 'utf8');
-  const decipher = crypto.createDecipheriv('aes-128-ecb', cipherKey, '');
-  decipher.setAutoPadding(true);
-  return Buffer.concat([decipher.update(encryptedBuffer), decipher.final()]);
+  try {
+    const decipher = crypto.createDecipheriv('aes-128-ecb', cipherKey, '');
+    decipher.setAutoPadding(true);
+    return Buffer.concat([decipher.update(encryptedBuffer), decipher.final()]);
+  } catch (err) {
+    // Fallback: manually strip PKCS#7 padding if standard autoPadding rejects
+    const decipher = crypto.createDecipheriv('aes-128-ecb', cipherKey, '');
+    decipher.setAutoPadding(false);
+    const raw = Buffer.concat([decipher.update(encryptedBuffer), decipher.final()]);
+    const pad = raw[raw.length - 1];
+    if (pad > 0 && pad <= 16) {
+      return raw.slice(0, raw.length - pad);
+    }
+    return raw;
+  }
 }
 
 /**
@@ -137,7 +149,6 @@ function decodeFrame(buffer, key, version = '3.3') {
 
   if (payload.length >= 4) {
     retCode = payload.readUInt32BE(0);
-    // If first 4 bytes is retCode, slice it
     if (retCode === 0) {
       payload = payload.slice(4);
     }
@@ -153,17 +164,19 @@ function decodeFrame(buffer, key, version = '3.3') {
   }
 
   let decryptedJson = null;
-  try {
-    const cipherKey = Buffer.isBuffer(key) ? key : Buffer.from(key, 'utf8');
-    const decryptedBuf = decryptECB(payload, cipherKey);
-    decryptedJson = JSON.parse(decryptedBuf.toString('utf8'));
-  } catch (err) {
+  if (payload.length > 0 && payload.length % 16 === 0) {
     try {
-      decryptedJson = JSON.parse(payload.toString('utf8'));
-    } catch (e) {
-      // Raw string fallback
-      decryptedJson = { raw: payload.toString('utf8', 0, Math.min(payload.length, 64)) };
+      const decryptedBuf = decryptECB(payload, key);
+      decryptedJson = JSON.parse(decryptedBuf.toString('utf8').trim());
+    } catch (err) {
+      try {
+        decryptedJson = JSON.parse(payload.toString('utf8').trim());
+      } catch (e) {}
     }
+  } else {
+    try {
+      decryptedJson = JSON.parse(payload.toString('utf8').trim());
+    } catch (e) {}
   }
 
   return { seq, cmd, retCode, payload: decryptedJson };

@@ -16,7 +16,14 @@ const MqttBridge = require('./mqtt-bridge');
 // 1. Initialize Web Express & WebSocket Server (HA Ingress Port 8099)
 const app = express();
 const server = http.createServer(app);
-const wss = new WebSocketServer({ server, path: '/ws' });
+const wss = new WebSocketServer({ noServer: true });
+
+// Accept WebSocket upgrades for direct access or Ingress paths
+server.on('upgrade', (request, socket, head) => {
+  wss.handleUpgrade(request, socket, head, (ws) => {
+    wss.emit('connection', ws, request);
+  });
+});
 
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'web')));
@@ -80,7 +87,7 @@ if (!options.devices || options.devices.length === 0) {
 }
 
 console.log('=====================================================');
-console.log('       GAVASAH Tuya LAN Gateway v1.0.0               ');
+console.log('       GAVASAH Tuya LAN Gateway v1.0.1               ');
 console.log('=====================================================');
 
 // 3. Initialize MQTT Bridge
@@ -107,6 +114,11 @@ options.devices.forEach((devConf) => {
   device.on('log', (msg) => {
     console.log(msg);
     broadcastWs({ type: 'log', level: 'TUYA', msg });
+  });
+
+  device.on('error', (err) => {
+    console.error(`[Device Error] ${devConf.name}:`, err.message);
+    broadcastWs({ type: 'log', level: 'ERROR', msg: err.message });
   });
 
   device.on('raw-packet', (packet) => {
