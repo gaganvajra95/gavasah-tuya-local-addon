@@ -1,0 +1,15 @@
+#!/usr/bin/with-contenv bashio
+# ==============================================================================
+# GAVASAH Tuya LAN Gateway Service Runner
+# ==============================================================================
+
+bashio::log.info "Starting Gavasah Tuya LAN Gateway engine..."
+
+# Export configuration from Home Assistant options
+CONFIG_PATH="/data/options.json"
+if [ -f "${CONFIG_PATH}" ]; then
+    export OPTIONS_PATH="${CONFIG_PATH}"
+fi
+
+cd /app || bashio::exit.nok "Cannot navigate to /app"
+exec node src/server.js

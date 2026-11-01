@@ -1,0 +1,22 @@
+configuration:
+  mqtt_host:
+    name: "MQTT Broker Host"
+    description: "The hostname or IP of the Mosquitto MQTT broker (e.g. core-mosquitto)."
+  mqtt_port:
+    name: "MQTT Port"
+    description: "Port on which the MQTT broker listens (usually 1883)."
+  mqtt_user:
+    name: "MQTT Username"
+    description: "Optional username for MQTT authentication."
+  mqtt_password:
+    name: "MQTT Password"
+    description: "Optional password for MQTT authentication."
+  log_level:
+    name: "Logging Level"
+    description: "Console verbosity level."
+  auto_discover_udp:
+    name: "Auto-Discover UDP"
+    description: "Listen for local Tuya UDP broadcast packets on ports 6666 and 6667."
+  devices:
+    name: "Static Device List"
+    description: "Pre-configured Tuya endpoints with explicit IP addresses, Device IDs, and local cryptographic keys."

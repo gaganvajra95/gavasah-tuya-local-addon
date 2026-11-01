@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gavasah Tuya LAN Gateway</title>
+  <style>
+    :root {
+      --bg-primary: #0a0e17;
+      --bg-secondary: #131b2e;
+      --bg-card: #1c2640;
+      --accent-cyan: #00e5ff;
+      --accent-blue: #2979ff;
+      --text-main: #f0f4f8;
+      --text-muted: #8ba2c4;
+      --border-color: #273859;
+      --success: #00e676;
+      --warning: #ffab00;
+      --danger: #ff1744;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background-color: var(--bg-primary);
+      color: var(--text-main);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      padding: 24px;
+      line-height: 1.5;
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-bottom: 20px;
+      border-bottom: 1px solid var(--border-color);
+      margin-bottom: 24px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand h1 {
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+    }
+
+    .brand span {
+      background: linear-gradient(135deg, var(--accent-cyan), var(--accent-blue));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .status-badge {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--bg-secondary);
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 13px;
+      border: 1px solid var(--border-color);
+    }
+
+    .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background-color: var(--success);
+      box-shadow: 0 0 10px var(--success);
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 20px;
+      margin-bottom: 24px;
+    }
+
+    .card {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+    }
+
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+
+    .card-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--text-main);
+    }
+
+    .badge-type {
+      background: rgba(0, 229, 255, 0.1);
+      color: var(--accent-cyan);
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+
+    .control-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 14px;
+    }
+
+    .slider-group {
+      margin-top: 14px;
+    }
+
+    .slider-label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+    }
+
+    input[type=range] {
+      width: 100%;
+      height: 6px;
+      background: var(--bg-card);
+      border-radius: 4px;
+      outline: none;
+      -webkit-appearance: none;
+    }
+
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: var(--accent-cyan);
+      cursor: pointer;
+      box-shadow: 0 0 8px rgba(0, 229, 255, 0.6);
+    }
+
+    .btn {
+      background: var(--accent-blue);
+      color: #fff;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 600;
+      transition: all 0.2s;
+    }
+
+    .btn:hover {
+      background: #1e60d0;
+    }
+
+    .btn-toggle {
+      background: #2a3b5c;
+      min-width: 70px;
+    }
+
+    .btn-toggle.active {
+      background: var(--success);
+      color: #000;
+      box-shadow: 0 0 12px rgba(0, 230, 118, 0.4);
+    }
+
+    .packet-log {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 16px;
+      font-family: 'Consolas', 'Courier New', monospace;
+      font-size: 12px;
+      height: 220px;
+      overflow-y: auto;
+      color: #a4c4e8;
+    }
+
+    .packet-entry {
+      padding: 3px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+    }
+
+    .packet-in { color: #00e676; }
+    .packet-out { color: #00e5ff; }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="brand">
+      <h1>GAVASAH <span>Tuya LAN</span></h1>
+    </div>
+    <div class="status-badge">
+      <div class="dot"></div>
+      <span id="gateway-status">LAN Hub Active (TCP 6668)</span>
+    </div>
+  </header>
+
+  <div class="grid" id="devices-grid">
+    <!-- Populated dynamically via JS -->
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">Realtime LAN Event Bus (Sub-20ms Feedback)</div>
+      <button class="btn" style="background:#22304d; font-size:11px;" onclick="clearLogs()">Clear Log</button>
+    </div>
+    <div class="packet-log" id="packet-log">
+      <div class="packet-entry">[System] Initializing Gavasah Tuya LAN Gateway Web Ingress...</div>
+    </div>
+  </div>
+
+  <script>
+    const logBox = document.getElementById('packet-log');
+
+    function logPacket(direction, text) {
+      const entry = document.createElement('div');
+      entry.className = `packet-entry ${direction === 'in' ? 'packet-in' : 'packet-out'}`;
+      const time = new Date().toISOString().split('T')[1].slice(0, 8);
+      entry.innerText = `[${time}] ${direction === 'in' ? '<-- RX' : '--> TX'} ${text}`;
+      logBox.appendChild(entry);
+      logBox.scrollTop = logBox.scrollHeight;
+    }
+
+    function clearLogs() {
+      logBox.innerHTML = '';
+    }
+
+    // Connect to WebSocket stream for live bidirectional feedback
+    const wsProto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsUrl = `${wsProto}//${window.location.host}/ws`;
+    let ws;
+
+    function initWebSocket() {
+      ws = new WebSocket(wsUrl);
+      ws.onmessage = (event) => {
+        try {
+          const msg = JSON.parse(event.data);
+          if (msg.type === 'packet') {
+            logPacket(msg.direction, JSON.stringify(msg.data));
+          } else if (msg.type === 'state_update') {
+            updateUiState(msg.device, msg.dps);
+          }
+        } catch(e) {}
+      };
+      ws.onclose = () => setTimeout(initWebSocket, 3000);
+    }
+    initWebSocket();
+
+    // Load initial devices
+    async function loadDevices() {
+      try {
+        const res = await fetch('/api/devices');
+        const data = await res.json();
+        renderDevices(data);
+      } catch (e) {
+        console.error("Failed to load devices", e);
+      }
+    }
+
+    function renderDevices(devices) {
+      const container = document.getElementById('devices-grid');
+      container.innerHTML = '';
+
+      devices.forEach(dev => {
+        if (dev.type === 'dali_gateway') {
+          // Render DALI Sub-Devices
+          const subDevices = [
+            { id: 0, name: "DALI Lamp 0 (CCT DT8)", type: "cct" },
+            { id: 1, name: "DALI Lamp 1 (CCT DT8)", type: "cct" },
+            { id: 2, name: "DALI Lamp 2 (Dimmer DT6)", type: "dimmer" }
+          ];
+
+          subDevices.forEach(sub => {
+            const card = document.createElement('div');
+            card.className = 'card';
+            card.innerHTML = `
+              <div class="card-header">
+                <div class="card-title">${sub.name}</div>
+                <div class="badge-type">${sub.type === 'cct' ? 'Tunable White' : 'Single Dimmer'}</div>
+              </div>
+              <div class="control-row">
+                <span style="font-size:13px; color:var(--text-muted);">IP: 192.168.1.210</span>
+                <button class="btn btn-toggle" id="btn-power-${sub.id}" onclick="toggleLight('${dev.id}', ${sub.id})">OFF</button>
+              </div>
+              <div class="slider-group">
+                <div class="slider-label"><span>Brightness</span><span id="val-bri-${sub.id}">100%</span></div>
+                <input type="range" min="10" max="1000" value="1000" id="slider-bri-${sub.id}" onchange="setBrightness('${dev.id}', ${sub.id}, this.value)">
+              </div>
+              ${sub.type === 'cct' ? `
+              <div class="slider-group">
+                <div class="slider-label"><span>Color Temp (Kelvin)</span><span id="val-cct-${sub.id}">4000K</span></div>
+                <input type="range" min="0" max="1000" value="500" id="slider-cct-${sub.id}" onchange="setColorTemp('${dev.id}', ${sub.id}, this.value)">
+              </div>` : ''}
+            `;
+            container.appendChild(card);
+          });
+        }
+      });
+    }
+
+    async function toggleLight(deviceId, subId) {
+      const btn = document.getElementById(`btn-power-${subId}`);
+      const newState = !btn.classList.contains('active');
+      btn.classList.toggle('active', newState);
+      btn.innerText = newState ? 'ON' : 'OFF';
+
+      await fetch('/api/control', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ deviceId, subId, dps: { '20': newState } })
+      });
+    }
+
+    async function setBrightness(deviceId, subId, val) {
+      document.getElementById(`val-bri-${subId}`).innerText = `${Math.round(val / 10)}%`;
+      await fetch('/api/control', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ deviceId, subId, dps: { '22': parseInt(val) } })
+      });
+    }
+
+    async function setColorTemp(deviceId, subId, val) {
+      const kelvin = Math.round(2700 + (val / 1000) * 3800);
+      document.getElementById(`val-cct-${subId}`).innerText = `${kelvin}K`;
+      await fetch('/api/control', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ deviceId, subId, dps: { '23': parseInt(val) } })
+      });
+    }
+
+    loadDevices();
+  </script>
+</body>
+</html>
