@@ -20,6 +20,7 @@ SESSION_FILE = os.path.join(DATA_DIR, "tuya_session.json")
 
 def mint_qr(user_code, scheme="smartlife"):
     import qrcode
+    import qrcode.image.svg
     from tuya_sharing import LoginControl
 
     ctrl = LoginControl()
@@ -33,22 +34,32 @@ def mint_qr(user_code, scheme="smartlife"):
     token = resp["result"]["qrcode"]
     qr_payload = f"{scheme}--qrLogin?token={token}"
 
-    # Generate QR Code image as base64 PNG data URL
+    # Generate QR Code image - use pure SVG to avoid PIL/Pillow dependency
     qr = qrcode.QRCode(border=2)
     qr.add_data(qr_payload)
     qr.make(fit=True)
-    img = qr.make_image(fill_color="black", back_color="white")
 
-    buf = io.BytesIO()
-    img.save(buf, format="PNG")
-    b64 = base64.b64encode(buf.getvalue()).decode("ascii")
+    try:
+        img = qr.make_image(image_factory=qrcode.image.svg.SvgPathImage)
+        buf = io.BytesIO()
+        img.save(buf)
+        svg_content = buf.getvalue().decode("utf-8")
+        b64 = base64.b64encode(svg_content.encode("utf-8")).decode("ascii")
+        qr_data_url = f"data:image/svg+xml;base64,{b64}"
+    except Exception:
+        # Fallback to PNG if Pillow is available
+        img = qr.make_image(fill_color="black", back_color="white")
+        buf = io.BytesIO()
+        img.save(buf, format="PNG")
+        b64 = base64.b64encode(buf.getvalue()).decode("ascii")
+        qr_data_url = f"data:image/png;base64,{b64}"
 
     return {
         "success": True,
         "token": token,
         "scheme": scheme,
         "qr_payload": qr_payload,
-        "qr_data_url": f"data:image/png;base64,{b64}"
+        "qr_data_url": qr_data_url
     }
 
 def poll_qr(token, user_code):
@@ -299,3 +310,4 @@ if __name__ == '__main__':
 
     else:
         print(json.dumps({"error": f"Unknown command: {cmd}"}))
+

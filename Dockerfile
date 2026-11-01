@@ -1,8 +1,8 @@
 ARG BUILD_FROM=alpine:3.20
 FROM ${BUILD_FROM}
 
-# Install Node.js, NPM, Python3, and cryptographic dependencies
-RUN apk add --no-cache nodejs npm bash python3 py3-pip py3-cryptography py3-requests py3-paho-mqtt
+# Install Node.js, NPM, Python3, Pillow, and cryptographic dependencies
+RUN apk add --no-cache nodejs npm bash python3 py3-pip py3-pillow py3-cryptography py3-requests py3-paho-mqtt
 RUN pip install --no-cache-dir --break-system-packages tuya-device-sharing-sdk qrcode tinytuya
 
 WORKDIR /app
