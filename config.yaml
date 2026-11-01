@@ -12,7 +12,7 @@ boot: auto
 init: false
 host_network: true
 ingress: true
-ingress_port: 8099
+ingress_port: 8199
 panel_icon: "mdi:transit-connection-variant"
 panel_title: "Tuya LAN"
 homeassistant_api: true

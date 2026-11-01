@@ -379,7 +379,7 @@ app.post('/api/gateway/resolve-mac', async (req, res) => {
   }
 });
 
-const PORT = process.env.PORT || 8099;
+const PORT = process.env.PORT || 8199;
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`[Ingress] Web UI active on http://0.0.0.0:${PORT}`);
 });
