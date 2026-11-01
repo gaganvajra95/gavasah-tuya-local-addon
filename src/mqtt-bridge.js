@@ -246,3 +246,4 @@ class MqttBridge extends EventEmitter {
 }
 
 module.exports = MqttBridge;
+

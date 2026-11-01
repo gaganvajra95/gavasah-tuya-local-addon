@@ -242,3 +242,4 @@ class TuyaDevice extends EventEmitter {
 }
 
 module.exports = TuyaDevice;
+

@@ -49,3 +49,4 @@ Once paired and configured in this add-on:
    * **Source**: IP of the Tuya/DALI device (e.g. `192.168.1.210`)
    * **Policy**: Block
 4. All local controls, Home Assistant automations, and physical switch feedbacks will continue to function in real-time with zero packet loss.
+

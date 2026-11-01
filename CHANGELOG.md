@@ -23,3 +23,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Sub-20ms unsolicited state push updates triggered by physical switches and external sensors.
 - Embedded Ingress Web UI dashboard for live packet inspection, DP control, and device configuration.
 - Host network binding (`host_network: true`) for high-throughput UDP 6666/6667 auto-discovery.
+

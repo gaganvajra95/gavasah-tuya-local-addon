@@ -1,24 +1,18 @@
-ARG BUILD_FROM=ghcr.io/home-assistant/amd64-base-nodejs:latest
+ARG BUILD_FROM=alpine:3.20
 FROM ${BUILD_FROM}
 
-# Set shell
-SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+# Install Node.js, NPM, and Bash
+RUN apk add --no-cache nodejs npm bash
 
-# Set working directory
 WORKDIR /app
 
-# Copy package definition and install production dependencies
+# Copy package definition and install dependencies
 COPY package.json /app/
-RUN npm install --only=production
+RUN npm install --omit=dev
 
 # Copy application source code
-COPY src /app/src
+COPY . /app/
+RUN chmod +x /app/run.sh
 
-# Copy rootfs (s6-overlay service definitions and entrypoints)
-COPY rootfs /
-
-# Set executable permissions on service runner
-RUN chmod +x /etc/s6-overlay/s6-rc.d/gavasah-tuya-local/run
-
-# Expose Ingress Web UI port
 EXPOSE 8099
+CMD [ "/app/run.sh" ]

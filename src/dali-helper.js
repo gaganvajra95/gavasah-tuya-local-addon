@@ -74,3 +74,4 @@ module.exports = {
   tuyaColorTempToMireds,
   KNOWN_DALI_PROFILES
 };
+

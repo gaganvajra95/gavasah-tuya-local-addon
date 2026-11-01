@@ -20,3 +20,4 @@ configuration:
   devices:
     name: "Static Device List"
     description: "Pre-configured Tuya endpoints with explicit IP addresses, Device IDs, and local cryptographic keys."
+

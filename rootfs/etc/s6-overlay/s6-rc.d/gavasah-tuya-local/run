@@ -13,3 +13,4 @@ fi
 
 cd /app || bashio::exit.nok "Cannot navigate to /app"
 exec node src/server.js
+

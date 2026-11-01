@@ -44,3 +44,4 @@ An enterprise-grade, zero-cloud Home Assistant Supervisor add-on designed for th
 
 ## License & Support
 Maintained by the **GAVASAH Engineering Team** for the Gavasah Cloud Hub and Gavasah Gateway platform.
+

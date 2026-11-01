@@ -106,3 +106,4 @@ class TuyaDiscovery extends EventEmitter {
 }
 
 module.exports = TuyaDiscovery;
+
