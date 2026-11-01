@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.3.0] - 2026-11-02
+### Added
+- **Tuya Cloud Auto-Sync & Key Extractor Engine (`tuya-cloud-sync.js` & `tuya-sync-worker.py`)**: Automatic retrieval of secret 16-character AES `local_key`s, Zigbee remotes/sub-devices, and standalone Wi-Fi devices.
+- **Smart Life / Tuya Smart App QR-Code Login**: Integrators can log in using only their mobile app user code (`Me -> Settings -> Account and Security -> User Code`) and scan the on-screen QR code with their phone. Bypasses the need for any Tuya IoT Cloud Developer accounts or manual API configuration.
+- **Tuya IoT Developer API Sync**: Alternative sync method using official Access ID & Secret for enterprise/dealer cloud projects.
+- **Automatic Gateway Re-keying & Remote Auto-Provisioning**: Seamlessly binds retrieved `local_key`s to live gateway instances (e.g., `Tuya Zigbee Gateway 192.168.1.194`), auto-imports paired Zigbee remotes, buttons, and switches into Home Assistant MQTT, and re-establishes encrypted TCP sessions without restart.
+
 ## [1.2.1] - 2026-11-02
 ### Fixed
 - **Hardware Architecture & Classification Engine (`device-detector.js`)**: Eliminated false DALI gateway misclassification and fallback MAC address duplication (`00:0c:43:e1:76:29`). Dynamically differentiates between Sunricher DALI Center (`dali_gateway`), Tuya Zigbee 3.0 Gateway (`zigbee_gateway`), and standalone Wi-Fi devices using Tuya ProductKey local catalogs, dynamic Linux `/proc/net/arp` table resolution, port probing (Telnet 23 vs TCP 6668), and online GitHub device definition fallback.

@@ -392,6 +392,7 @@
       <button class="tab-btn" onclick="switchTab('all-devices')">All Devices</button>
       <button class="tab-btn" onclick="switchTab('add-gateway')">Add Gateway</button>
       <button class="tab-btn" onclick="switchTab('add-wifi')">Add WiFi Devices</button>
+      <button class="tab-btn" onclick="switchTab('cloud-sync')">☁️ Cloud Sync</button>
     </div>
     <div class="status-bar">
       <span id="gateway-count">0 Gateways</span>
@@ -587,6 +588,106 @@
             </div>
           </div>
         </div>
+      </div>
+    </div>
+
+    <!-- TAB 7: CLOUD SYNC & LOCAL KEY EXTRACTOR -->
+    <div class="tab-content" id="tab-cloud-sync">
+      <div class="section-title">
+        <span>Tuya Cloud Auto-Sync & Local Key Extractor</span>
+        <span class="badge badge-primary">No Developer Account Required</span>
+      </div>
+
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap: 24px;">
+        <!-- Option 1: Smart Life / Tuya App QR Login -->
+        <div class="form-card">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+            <h3>📱 Smart Life / Tuya App QR Login</h3>
+            <span class="badge badge-accent">Recommended</span>
+          </div>
+          <p class="form-hint" style="margin-bottom: 16px; line-height: 1.5;">
+            Instantly import your gateways, secret <strong>local_keys</strong>, and Zigbee remotes/buttons by scanning a secure login QR code with your phone. No developer accounts or cloud projects required.
+          </p>
+
+          <div style="background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.25); border-radius: 6px; padding: 12px; margin-bottom: 16px; font-size: 0.8rem; line-height: 1.5;">
+            <strong style="color: #60a5fa;">How to find your User Code:</strong><br>
+            1. Open the <strong>Smart Life</strong> or <strong>Tuya Smart</strong> app on your phone.<br>
+            2. Tap <strong>Me</strong> (bottom right) ➔ <strong>⚙️ Settings</strong> (top right).<br>
+            3. Tap <strong>Account and Security</strong> ➔ scroll to bottom: <strong>User Code</strong> (e.g. <code>c483a91b</code>).
+          </div>
+
+          <div class="form-group">
+            <label>Smart Life User Code</label>
+            <input type="text" id="sync-user-code" class="form-input" placeholder="Enter your 8-character user code">
+          </div>
+
+          <div class="form-group">
+            <label>Mobile App Platform</label>
+            <select id="sync-app-scheme" class="form-input">
+              <option value="smartlife">Smart Life App</option>
+              <option value="tuyaSmart">Tuya Smart App</option>
+            </select>
+          </div>
+
+          <button class="btn" id="btn-start-qr" style="width: 100%; padding: 10px;" onclick="startCloudQrLogin()">🚀 Generate Login QR Code</button>
+
+          <!-- QR Code Display Box -->
+          <div id="qr-display-box" style="display: none; margin-top: 20px; text-align: center; background: #090d16; border: 1px solid var(--card-border); border-radius: 8px; padding: 20px;">
+            <div style="font-weight: 600; margin-bottom: 12px; color: #fff;">Scan with your Smart Life App</div>
+            <div style="display: inline-block; background: white; padding: 12px; border-radius: 8px; margin-bottom: 12px;">
+              <img id="qr-image" src="" alt="Tuya Login QR Code" style="width: 200px; height: 200px; display: block;">
+            </div>
+            <div id="qr-poll-status" style="font-size: 0.85rem; color: #60a5fa; display: flex; align-items: center; justify-content: center; gap: 8px;">
+              <span class="indicator" style="background:#60a5fa;"></span> Waiting for scan confirmation in app...
+            </div>
+            <p class="form-hint" style="margin-top: 8px;">In your app, tap <strong>+ ➔ Scan</strong> or <strong>Me ➔ 📷 (top right)</strong>, point at this QR code, and tap <strong>"Confirm login"</strong>.</p>
+          </div>
+        </div>
+
+        <!-- Option 2: Tuya IoT Developer Project API -->
+        <div class="form-card">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+            <h3>☁️ Tuya Developer IoT Platform API</h3>
+            <span class="badge badge-warning">Enterprise / Developer</span>
+          </div>
+          <p class="form-hint" style="margin-bottom: 16px; line-height: 1.5;">
+            For integrators with a Tuya Cloud Developer account (<code>iot.tuya.com</code>). Fetches all devices and subdevices via official REST API.
+          </p>
+
+          <div class="form-group">
+            <label>Access ID (Client ID)</label>
+            <input type="text" id="dev-api-key" class="form-input" placeholder="Tuya IoT Access ID">
+          </div>
+
+          <div class="form-group">
+            <label>Access Secret (Client Secret)</label>
+            <input type="password" id="dev-api-secret" class="form-input" placeholder="Tuya IoT Access Secret">
+          </div>
+
+          <div class="form-group">
+            <label>Data Center Region</label>
+            <select id="dev-api-region" class="form-input">
+              <option value="in">India (Data Center)</option>
+              <option value="us">Western America (US)</option>
+              <option value="eu">Central Europe (EU)</option>
+              <option value="cn">China (CN)</option>
+              <option value="sg">Singapore (SG)</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label>Sample Device ID (Optional)</label>
+            <input type="text" id="dev-sample-id" class="form-input" placeholder="e.g. d73312627d4f66c788gsrs">
+          </div>
+
+          <button class="btn btn-secondary" style="width: 100%; padding: 10px;" onclick="syncDeveloperApi()">⚡ Sync via Developer API</button>
+        </div>
+      </div>
+
+      <!-- Sync Results Container -->
+      <div id="sync-results-box" style="display: none; margin-top: 24px;" class="form-card">
+        <h3 style="color: #34d399; margin-bottom: 12px;">🎉 Auto-Sync Completed Successfully</h3>
+        <div id="sync-results-content"></div>
       </div>
     </div>
 
@@ -1314,6 +1415,137 @@
         document.getElementById('main-status-ind').classList.add('offline');
         setTimeout(connectWs, 3000);
       };
+    }
+
+    // --- Cloud Sync JavaScript Controller ---
+    let qrPollTimer = null;
+
+    async function startCloudQrLogin() {
+      const userCode = document.getElementById('sync-user-code').value.trim();
+      const scheme = document.getElementById('sync-app-scheme').value;
+
+      if (!userCode) {
+        alert('Please enter your Smart Life User Code (Found in app -> Me -> Settings -> Account and Security -> User Code).');
+        return;
+      }
+
+      const btn = document.getElementById('btn-start-qr');
+      btn.disabled = true;
+      btn.innerText = '⏳ Minting Login QR Code...';
+      addLog('CLOUD', `Requesting QR authorization token for user code ${userCode}...`);
+
+      try {
+        const res = await fetch(`${basePath}api/cloud/qr-start`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userCode, scheme })
+        });
+        const data = await res.json();
+
+        if (data.success && data.qr_data_url) {
+          document.getElementById('qr-image').src = data.qr_data_url;
+          document.getElementById('qr-display-box').style.display = 'block';
+          btn.innerText = '🔄 Refresh QR Code';
+          btn.disabled = false;
+          addLog('CLOUD', `QR Code generated. Waiting for confirmation in ${scheme === 'smartlife' ? 'Smart Life' : 'Tuya Smart'} app...`);
+
+          // Start polling
+          if (qrPollTimer) clearInterval(qrPollTimer);
+          pollQrStatus(data.token, userCode);
+        } else {
+          alert('Failed to generate QR: ' + (data.error || 'Unknown error'));
+          btn.disabled = false;
+          btn.innerText = '🚀 Generate Login QR Code';
+        }
+      } catch (err) {
+        alert('Network error: ' + err.message);
+        btn.disabled = false;
+        btn.innerText = '🚀 Generate Login QR Code';
+      }
+    }
+
+    function pollQrStatus(token, userCode) {
+      const statusEl = document.getElementById('qr-poll-status');
+      let attempts = 0;
+
+      qrPollTimer = setInterval(async () => {
+        attempts++;
+        if (attempts > 75) {
+          clearInterval(qrPollTimer);
+          statusEl.innerHTML = '<span style="color:#f87171;">⚠️ QR Code Expired. Please click Refresh QR Code.</span>';
+          return;
+        }
+
+        try {
+          const res = await fetch(`${basePath}api/cloud/qr-poll`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ token, userCode })
+          });
+          const data = await res.json();
+
+          if (data.status === 'authorized' && data.success) {
+            clearInterval(qrPollTimer);
+            statusEl.innerHTML = '<strong style="color:#34d399;">✅ Authorized! Syncing devices and local keys...</strong>';
+            showSyncResults(data);
+            refreshData();
+          } else if (data.status === 'scanned') {
+            statusEl.innerHTML = '<strong style="color:#fbbf24;">📲 QR Scanned! Please tap "Confirm Login" on your phone.</strong>';
+          }
+        } catch (err) {}
+      }, 2500);
+    }
+
+    async function syncDeveloperApi() {
+      const apiKey = document.getElementById('dev-api-key').value.trim();
+      const apiSecret = document.getElementById('dev-api-secret').value.trim();
+      const region = document.getElementById('dev-api-region').value;
+      const sampleId = document.getElementById('dev-sample-id').value.trim();
+
+      if (!apiKey || !apiSecret) {
+        alert('Please enter both Access ID and Access Secret.');
+        return;
+      }
+
+      addLog('CLOUD', 'Syncing devices via Tuya Developer IoT API...');
+      try {
+        const res = await fetch(`${basePath}api/cloud/developer-sync`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ apiKey, apiSecret, region, sampleId })
+        });
+        const data = await res.json();
+
+        if (data.success) {
+          showSyncResults(data);
+          refreshData();
+        } else {
+          alert('Developer sync failed: ' + (data.error || 'Unknown error'));
+        }
+      } catch (err) {
+        alert('Sync error: ' + err.message);
+      }
+    }
+
+    function showSyncResults(data) {
+      const box = document.getElementById('sync-results-box');
+      const content = document.getElementById('sync-results-content');
+      box.style.display = 'block';
+
+      const applied = data.applied || {};
+      const updated = applied.updatedGateways || [];
+      const remotes = applied.discoveredRemotes || [];
+      const wifi = applied.addedWifiDevices || [];
+
+      content.innerHTML = `
+        <p style="margin-bottom:12px; color:var(--text);">Successfully synchronized cloud data with local hardware:</p>
+        <div style="background:#0f172a; border:1px solid var(--card-border); border-radius:6px; padding:12px;">
+          <div>🔑 <strong>Gateways Updated with Secret Local Keys:</strong> ${updated.length} (${updated.map(u => u.name).join(', ') || 'None'})</div>
+          <div style="margin-top:6px;">🎮 <strong>Zigbee Remotes & Sub-Devices Acquired:</strong> ${remotes.length} (${remotes.map(r => r.name).join(', ') || 'None'})</div>
+          <div style="margin-top:6px;">📶 <strong>Standalone Wi-Fi Devices Commissioned:</strong> ${wifi.length} (${wifi.map(w => w.name).join(', ') || 'None'})</div>
+        </div>
+      `;
+      addLog('CLOUD', `🎉 Cloud Sync complete! Updated ${updated.length} gateways, imported ${remotes.length} subdevices.`);
     }
 
     // Initialize on page load

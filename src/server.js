@@ -14,6 +14,7 @@ const GatewayManager = require('./gateway-manager');
 const TuyaDiscovery = require('./tuya-discovery');
 const MqttBridge = require('./mqtt-bridge');
 const { resolveMacAddress, classifyTuyaEndpoint } = require('./device-detector');
+const cloudSync = require('./tuya-cloud-sync');
 const pkg = require('../package.json');
 
 // 1. Initialize Web Express & WebSocket Server (HA Ingress Port 8099)
@@ -409,6 +410,60 @@ app.post('/api/gateway/resolve-mac', async (req, res) => {
     res.json(result);
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+// --- Tuya Cloud Sync Endpoints (QR Code Login & Developer Sync) ---
+
+// Start Smart Life / Tuya Smart QR code login session
+app.post('/api/cloud/qr-start', async (req, res) => {
+  const { userCode, scheme } = req.body;
+  try {
+    const result = await cloudSync.startQrLogin(userCode, scheme || 'smartlife');
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Poll QR login confirmation and apply discovered devices/keys
+app.post('/api/cloud/qr-poll', async (req, res) => {
+  const { token, userCode } = req.body;
+  try {
+    const pollRes = await cloudSync.pollQrLogin(token, userCode);
+    if (pollRes.status === 'authorized') {
+      const applyRes = cloudSync.applyCloudImport(gatewayMgr, mqttBridge, pollRes);
+      return res.json({
+        success: true,
+        status: 'authorized',
+        applied: applyRes,
+        gateways: pollRes.gateways,
+        wifiDevices: pollRes.wifiDevices
+      });
+    }
+    res.json(pollRes);
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Sync using Tuya IoT Developer Project API credentials
+app.post('/api/cloud/developer-sync', async (req, res) => {
+  const { apiKey, apiSecret, region, sampleId } = req.body;
+  try {
+    const syncRes = await cloudSync.syncDeveloper(apiKey, apiSecret, region, sampleId);
+    if (syncRes.success) {
+      const applyRes = cloudSync.applyCloudImport(gatewayMgr, mqttBridge, syncRes);
+      return res.json({
+        success: true,
+        applied: applyRes,
+        gateways: syncRes.gateways,
+        wifiDevices: syncRes.wifiDevices
+      });
+    }
+    res.json(syncRes);
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
   }
 });
 

@@ -200,3 +200,4 @@ module.exports = {
   lookupProductOnline,
   classifyTuyaEndpoint
 };
+
