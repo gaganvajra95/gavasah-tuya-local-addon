@@ -89,7 +89,9 @@ class GatewayManager extends EventEmitter {
         local_key: g.key,
         version: g.version,
         type: g.type,
-        subDevices: g.subDevices
+        category: g.category || (g.type === 'dali_gateway' || g.type === 'zigbee_gateway' || g.type === 'gateway' ? 'gateway' : 'wifi_device'),
+        subDevices: g.subDevices,
+        dps: g.dps || {}
       }));
       fs.writeFileSync(GATEWAYS_FILE, JSON.stringify(data, null, 2), 'utf8');
     } catch (e) {
@@ -378,22 +380,32 @@ class GatewayManager extends EventEmitter {
   /**
    * Handle Dynamic DHCP discovery packets: rebind IP if changed
    */
+  /**
+   * Continuous dynamic DHCP re-binding: match any gateway or standalone Wi-Fi endpoint
+   */
   handleDiscoveredEndpoint(disc) {
-    if (!disc || !disc.gwId) return;
+    if (!disc) return;
+    const targetId = disc.id || disc.gwId || disc.devId;
 
-    if (this.gateways.has(disc.gwId)) {
-      const gw = this.gateways.get(disc.gwId);
-      if (disc.ip && gw.ip !== disc.ip) {
-        gw.updateIp(disc.ip);
+    for (const gw of this.gateways.values()) {
+      if (gw.id === targetId || gw.id === disc.gwId || gw.id === disc.id || gw.id === disc.devId) {
+        if (disc.ip && gw.ip !== disc.ip) {
+          this.emit('log', `[Dynamic DHCP] Re-binding ${gw.name} (${gw.id}): ${gw.ip} -> ${disc.ip}`);
+          gw.updateIp(disc.ip);
+          this.persistGateways();
+          const info = gw.category === 'wifi_device' ? this.getWifiDeviceInfo(gw) : this.getGatewayInfo(gw);
+          this.emit('gateway-updated', info);
+        }
+        break;
       }
     }
   }
 
   /**
-   * Set custom friendly name for gateway or sub-device
+   * Set custom friendly name for gateway, standalone Wi-Fi device, or sub-device
    */
   rename(targetType, id, subId, newName) {
-    if (targetType === 'gateway') {
+    if (targetType === 'gateway' || targetType === 'wifi_device' || (!subId && this.gateways.has(id))) {
       this.customNames[id] = newName;
       if (this.gateways.has(id)) {
         this.gateways.get(id).name = newName;
@@ -411,6 +423,95 @@ class GatewayManager extends EventEmitter {
     this.persistNames();
     this.persistGateways();
     this.emit('renamed', { targetType, id, subId, name: newName });
+  }
+
+  /**
+   * Register a standalone Tuya Wi-Fi device
+   */
+  addWifiDevice(conf, save = true) {
+    return this.addGateway({
+      ...conf,
+      category: 'wifi_device',
+      type: conf.type || 'switch',
+      subDevices: {}
+    }, save);
+  }
+
+  getWifiDeviceInfo(device) {
+    return {
+      id: device.id,
+      name: this.customNames[device.id] || device.name,
+      ip: device.ip,
+      mac: device.mac,
+      port: device.port,
+      version: device.version,
+      type: device.type || 'switch',
+      category: 'wifi_device',
+      connected: device.isConnected,
+      latency: device.pingLatency,
+      dps: device.dps || {},
+      lastPing: device.lastPing
+    };
+  }
+
+  getAllGateways() {
+    return Array.from(this.gateways.values())
+      .filter((g) => g.category !== 'wifi_device')
+      .map((g) => this.getGatewayInfo(g));
+  }
+
+  getAllWifiDevices() {
+    return Array.from(this.gateways.values())
+      .filter((g) => g.category === 'wifi_device')
+      .map((g) => this.getWifiDeviceInfo(g));
+  }
+
+  getAllDevices() {
+    const list = [];
+    this.gateways.forEach((gw) => {
+      if (gw.category === 'wifi_device') return;
+      const gwName = this.customNames[gw.id] || gw.name;
+      Object.entries(gw.subDevices || {}).forEach(([subId, info]) => {
+        const key = `${gw.id}_${subId}`;
+        const devName = this.customNames[key] || info.name || `${gwName} ${subId}`;
+        list.push({
+          gatewayId: gw.id,
+          gatewayName: gwName,
+          gatewayIp: gw.ip,
+          gatewayConnected: gw.isConnected,
+          subId: subId,
+          devId: info.devId,
+          name: devName,
+          type: info.type || 'dimmer',
+          lastAction: info.lastAction || null,
+          dps: info.dps || {}
+        });
+      });
+    });
+    return list;
+  }
+
+  getAllEntities() {
+    const list = this.getAllDevices();
+    this.gateways.forEach((gw) => {
+      if (gw.category === 'wifi_device') {
+        const devName = this.customNames[gw.id] || gw.name;
+        list.push({
+          gatewayId: gw.id,
+          gatewayName: 'Tuya Wi-Fi Direct',
+          gatewayIp: gw.ip,
+          gatewayConnected: gw.isConnected,
+          subId: 'root',
+          devId: gw.id,
+          name: devName,
+          type: gw.type || 'switch',
+          category: 'wifi_device',
+          lastAction: null,
+          dps: gw.dps || {}
+        });
+      }
+    });
+    return list;
   }
 
   /**
@@ -483,40 +584,13 @@ class GatewayManager extends EventEmitter {
       port: g.port,
       version: g.version,
       type: g.type,
+      category: g.category || 'gateway',
       connected: g.isConnected,
       latency: g.pingLatency,
       subDeviceCount: Object.keys(g.subDevices || {}).length,
       cooldownRemaining: cooldownRemaining,
       subDevices: g.subDevices
     };
-  }
-
-  getAllGateways() {
-    return Array.from(this.gateways.values()).map((g) => this.getGatewayInfo(g));
-  }
-
-  getAllDevices() {
-    const list = [];
-    this.gateways.forEach((gw) => {
-      const gwName = this.customNames[gw.id] || gw.name;
-      Object.entries(gw.subDevices || {}).forEach(([subId, info]) => {
-        const key = `${gw.id}_${subId}`;
-        const devName = this.customNames[key] || info.name || `${gwName} ${subId}`;
-        list.push({
-          gatewayId: gw.id,
-          gatewayName: gwName,
-          gatewayIp: gw.ip,
-          gatewayConnected: gw.isConnected,
-          subId: subId,
-          devId: info.devId,
-          name: devName,
-          type: info.type || 'dimmer',
-          lastAction: info.lastAction || null,
-          dps: info.dps || {}
-        });
-      });
-    });
-    return list;
   }
 }
 

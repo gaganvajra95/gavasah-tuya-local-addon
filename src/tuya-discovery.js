@@ -64,7 +64,8 @@ class TuyaDiscovery extends EventEmitter {
       // 2. Try standard UDP key decryption (v3.3)
       try {
         const decrypted = decryptECB(payload, DEFAULT_UDP_KEY);
-        parsed = JSON.parse(decrypted.toString('utf8'));
+        const cleanStr = decrypted.toString('utf8').replace(/[\x00-\x1f\x7f-\x9f]/g, (c) => (c === '\r' || c === '\n' || c === '\t') ? c : '').trim();
+        parsed = JSON.parse(cleanStr);
       } catch (err) {
         // Encrypted with custom local_key (v3.4/v3.5)
       }
@@ -73,6 +74,8 @@ class TuyaDiscovery extends EventEmitter {
     const deviceId = parsed?.gwId || parsed?.devId || `unidentified_${rinfo.address.replace(/\./g, '_')}`;
     const deviceEntry = {
       id: deviceId,
+      gwId: parsed?.gwId || deviceId,
+      devId: parsed?.devId || deviceId,
       ip: rinfo.address,
       port: rinfo.port,
       discoveryPort: port,
@@ -87,8 +90,11 @@ class TuyaDiscovery extends EventEmitter {
 
     if (isNew) {
       this.emit('log', `[UDP Discovery] Discovered Tuya endpoint: ${deviceId} at ${rinfo.address} (v${deviceEntry.version})`);
-      this.emit('discovered', deviceEntry);
     }
+
+    // Always emit discovered and raw-discovery for continuous dynamic DHCP IP tracking
+    this.emit('discovered', deviceEntry);
+    this.emit('raw-discovery', deviceEntry);
   }
 
   getDevices() {
@@ -106,4 +112,3 @@ class TuyaDiscovery extends EventEmitter {
 }
 
 module.exports = TuyaDiscovery;
-

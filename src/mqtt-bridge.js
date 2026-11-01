@@ -1,7 +1,8 @@
 /**
  * GAVASAH Tuya LAN Gateway - Home Assistant MQTT Discovery & Bridge
  * Automates native Home Assistant entity provisioning and bidirectional state synchronization
- * Full support for DALI DT6/DT8, Tuya Wi-Fi, and Zigbee Remotes / Scene Buttons
+ * Full support for DALI DT6/DT8, Tuya Standalone Wi-Fi, and Zigbee Remotes / Scene Buttons
+ * Unified Single-Name Architecture (has_entity_name: true, name: null)
  */
 
 const mqtt = require('mqtt');
@@ -58,14 +59,14 @@ class MqttBridge extends EventEmitter {
   }
 
   /**
-   * Register a Gateway instance to the bridge
+   * Register a Gateway or Wi-Fi device instance to the bridge
    */
   registerGateway(gw) {
     this.gateways.set(gw.id, gw);
 
     // Bind real-time status events
     gw.on('status', (data) => {
-      this.publishDeviceState(gw, data.subId);
+      this.publishDeviceState(gw, data.subId || 'root');
     });
 
     // Bind real-time remote button / scene action events
@@ -98,19 +99,19 @@ class MqttBridge extends EventEmitter {
   }
 
   /**
-   * Subscribe to Home Assistant command topics
+   * Subscribe to Home Assistant command topics for both Gateways and Standalone Wi-Fi devices
    */
   subscribeCommands() {
     if (!this.client || !this.client.connected) return;
-    this.client.subscribe('gavasah/tuya/+/+/set', (err) => {
+    this.client.subscribe(['gavasah/tuya/+/set', 'gavasah/tuya/+/+/set'], (err) => {
       if (!err) {
-        this.emit('log', `[MQTT Bridge] Subscribed to topic: gavasah/tuya/+/+/set`);
+        this.emit('log', `[MQTT Bridge] Subscribed to command topics (WiFi & Gateways)`);
       }
     });
   }
 
   /**
-   * Publish Home Assistant MQTT Discovery configuration for all gateways & sub-devices
+   * Publish Home Assistant MQTT Discovery configuration for all gateways & devices
    */
   publishAllDiscoveries() {
     this.gateways.forEach((gw) => {
@@ -120,10 +121,16 @@ class MqttBridge extends EventEmitter {
   }
 
   /**
-   * Publish Discovery schemas for all subdevices of a gateway
+   * Publish Discovery schemas for all subdevices of a gateway or a standalone Wi-Fi device
    */
   publishGatewayDiscovery(gw) {
     if (!this.client || !this.client.connected) return;
+
+    if (gw.category === 'wifi_device') {
+      this.publishWifiDeviceDiscovery(gw);
+      this.publishDeviceState(gw, 'root');
+      return;
+    }
 
     Object.entries(gw.subDevices || {}).forEach(([subId, info]) => {
       this.publishSubDeviceDiscovery(gw, subId, info);
@@ -132,31 +139,110 @@ class MqttBridge extends EventEmitter {
   }
 
   /**
-   * Publish Discovery schema for a specific sub-device
+   * Publish Discovery schema for a standalone Tuya Wi-Fi device
+   */
+  publishWifiDeviceDiscovery(dev) {
+    if (!this.client || !this.client.connected) return;
+
+    const friendlyName = dev.name;
+    const type = dev.type || 'switch';
+    const isLight = type.includes('light') || type.includes('dimmer') || dev.dps['20'] !== undefined || dev.dps['22'] !== undefined;
+
+    if (isLight) {
+      const discoveryTopic = `homeassistant/light/${dev.id}/config`;
+      const isCct = type === 'light_cct' || type === 'light_rgbcw' || dev.dps['23'] !== undefined;
+      const isRgb = type === 'light_rgb' || type === 'light_rgbw' || type === 'light_rgbcw' || dev.dps['24'] !== undefined;
+
+      const colorModes = ['brightness'];
+      if (isCct) colorModes.push('color_temp');
+      if (isRgb) colorModes.push('hs', 'rgb');
+
+      const payload = {
+        name: null,
+        has_entity_name: true,
+        unique_id: `tuya_${dev.id}`,
+        schema: 'json',
+        state_topic: `gavasah/tuya/${dev.id}/state`,
+        command_topic: `gavasah/tuya/${dev.id}/set`,
+        availability_topic: `gavasah/tuya/${dev.id}/availability`,
+        brightness: true,
+        brightness_scale: 255,
+        color_mode: true,
+        supported_color_modes: colorModes,
+        device: {
+          identifiers: [`tuya_${dev.id}`],
+          name: friendlyName,
+          model: dev.type || 'Tuya WiFi Light',
+          manufacturer: 'Tuya / GAVASAH',
+          connections: dev.mac ? [['mac', dev.mac]] : []
+        }
+      };
+
+      if (isCct) {
+        payload.min_mireds = 153;
+        payload.max_mireds = 500;
+      }
+
+      this.client.publish(discoveryTopic, JSON.stringify(payload), { retain: true });
+      this.emit('log', `[MQTT Bridge] Published WiFi Light discovery: ${friendlyName}`);
+    } else {
+      // Switch / Relay / Plug
+      const discoveryTopic = `homeassistant/switch/${dev.id}/config`;
+      const payload = {
+        name: null,
+        has_entity_name: true,
+        unique_id: `tuya_${dev.id}`,
+        state_topic: `gavasah/tuya/${dev.id}/state`,
+        command_topic: `gavasah/tuya/${dev.id}/set`,
+        availability_topic: `gavasah/tuya/${dev.id}/availability`,
+        value_template: '{{ value_json.state }}',
+        state_on: 'ON',
+        state_off: 'OFF',
+        payload_on: JSON.stringify({ state: 'ON' }),
+        payload_off: JSON.stringify({ state: 'OFF' }),
+        device: {
+          identifiers: [`tuya_${dev.id}`],
+          name: friendlyName,
+          model: dev.type || 'Tuya WiFi Switch',
+          manufacturer: 'Tuya / GAVASAH',
+          connections: dev.mac ? [['mac', dev.mac]] : []
+        }
+      };
+
+      this.client.publish(discoveryTopic, JSON.stringify(payload), { retain: true });
+      this.emit('log', `[MQTT Bridge] Published WiFi Switch discovery: ${friendlyName}`);
+    }
+  }
+
+  /**
+   * Publish Discovery schema for a specific gateway sub-device
+   * Uses single unified name architecture (name: null, has_entity_name: true)
    */
   publishSubDeviceDiscovery(gw, subId, info) {
     if (!this.client || !this.client.connected) return;
 
     const type = info.type || 'dimmer';
+    const friendlyName = info.name || `${gw.name} ${subId}`;
 
     // If device is a Remote or Scene Controller, publish as HA Event Entity
     if (type === 'remote_button') {
       const discoveryTopic = `homeassistant/event/${gw.id}_${subId}/config`;
       const payload = {
-        name: info.name || `${gw.name} Remote ${subId}`,
+        name: null,
+        has_entity_name: true,
         unique_id: `${gw.id}_${subId}_event`,
         state_topic: `gavasah/tuya/${gw.id}/${subId}/action`,
         event_types: ['single', 'double', 'hold', 'click', 'rotate_left', 'rotate_right', 'press', 'alarm'],
         device: {
-          identifiers: [`tuya_${gw.id}`],
-          name: gw.name,
-          model: `${gw.name} Remote Controller`,
+          identifiers: [`tuya_${gw.id}_${subId}`],
+          name: friendlyName,
+          model: 'Tuya Zigbee Remote Controller',
           manufacturer: 'Tuya / GAVASAH',
-          connections: [['mac', gw.mac || '00:0c:43:e1:76:29']]
+          via_device: `tuya_${gw.id}`
         }
       };
       this.client.publish(discoveryTopic, JSON.stringify(payload), { retain: true });
-      this.emit('log', `[MQTT Bridge] Published event discovery for remote: ${info.name || subId}`);
+      this.emit('log', `[MQTT Bridge] Published event discovery for remote: ${friendlyName}`);
       return;
     }
 
@@ -178,7 +264,8 @@ class MqttBridge extends EventEmitter {
     }
 
     const payload = {
-      name: info.name || `${gw.name} ${subId}`,
+      name: null,
+      has_entity_name: true,
       unique_id: `${gw.id}_${subId}`,
       schema: 'json',
       state_topic: `gavasah/tuya/${gw.id}/${subId}/state`,
@@ -189,11 +276,11 @@ class MqttBridge extends EventEmitter {
       color_mode: true,
       supported_color_modes: colorModes,
       device: {
-        identifiers: [`tuya_${gw.id}`],
-        name: gw.name,
-        model: `${gw.name} (${gw.type.toUpperCase()})`,
+        identifiers: [`tuya_${gw.id}_${subId}`],
+        name: friendlyName,
+        model: `${gw.name} (${type.toUpperCase()})`,
         manufacturer: 'Sunricher / GAVASAH',
-        connections: [['mac', gw.mac || '00:0c:43:e1:76:29']]
+        via_device: `tuya_${gw.id}`
       }
     };
 
@@ -203,7 +290,7 @@ class MqttBridge extends EventEmitter {
     }
 
     this.client.publish(discoveryTopic, JSON.stringify(payload), { retain: true });
-    this.emit('log', `[MQTT Bridge] Published discovery config for ${info.name || subId} (${type})`);
+    this.emit('log', `[MQTT Bridge] Published unified discovery config for ${friendlyName} (${type})`);
   }
 
   /**
@@ -245,6 +332,25 @@ class MqttBridge extends EventEmitter {
   publishDeviceState(gw, targetSub = 'dali_0') {
     if (!this.client || !this.client.connected) return;
 
+    if (gw.category === 'wifi_device') {
+      const dps = gw.dps || {};
+      const isPowerOn = dps['1'] === true || dps['20'] === true;
+      const stateTopic = `gavasah/tuya/${gw.id}/state`;
+      const statePayload = {
+        state: isPowerOn ? 'ON' : 'OFF',
+        dps: dps
+      };
+
+      if (dps['22'] !== undefined) {
+        statePayload.brightness = tuyaBrightnessToHa(dps['22']);
+      }
+      if (dps['23'] !== undefined) {
+        statePayload.color_temp = tuyaColorTempToMireds(dps['23']);
+      }
+      this.client.publish(stateTopic, JSON.stringify(statePayload), { retain: true });
+      return;
+    }
+
     const subInfo = gw.subDevices && gw.subDevices[targetSub];
     const dps = subInfo ? subInfo.dps : {};
     const type = (subInfo && subInfo.type) || 'dimmer';
@@ -252,7 +358,7 @@ class MqttBridge extends EventEmitter {
     // Skip light state publishing for pure remote buttons
     if (type === 'remote_button') return;
 
-    const isPowerOn = dps['20'] === true;
+    const isPowerOn = dps['20'] === true || dps['1'] === true;
     const brightnessRaw = dps['22'] !== undefined ? dps['22'] : 1000;
     const colorTempRaw = dps['23'] !== undefined ? dps['23'] : 500;
     const hsvRaw = dps['24'] || '000003e803e8';
@@ -287,26 +393,42 @@ class MqttBridge extends EventEmitter {
   }
 
   /**
-   * Handle incoming commands from Home Assistant
+   * Handle incoming commands from Home Assistant (both Gateways and Standalone Wi-Fi)
    */
   handleIncomingMqtt(topic, message) {
     try {
       const parts = topic.split('/');
-      // Format: gavasah/tuya/<deviceId>/<subId>/set
-      if (parts.length < 5) return;
+      // Formats:
+      // gavasah/tuya/<deviceId>/set
+      // gavasah/tuya/<deviceId>/<subId>/set
+      if (parts.length < 4) return;
       const deviceId = parts[2];
-      const subId = parts[3];
+      const subId = parts.length >= 5 ? parts[3] : 'root';
 
       const gw = this.gateways.get(deviceId) || this.gateways.values().next().value;
       if (!gw) return;
 
       const payload = JSON.parse(message.toString('utf8'));
-      this.emit('log', `[MQTT Bridge] Command from HA for [${subId}]: ${JSON.stringify(payload)}`);
+      this.emit('log', `[MQTT Bridge] Command from HA for [${deviceId}/${subId}]: ${JSON.stringify(payload)}`);
 
       const dpsToSet = {};
 
+      if (payload.dps) {
+        Object.assign(dpsToSet, payload.dps);
+      }
+
       if (payload.state !== undefined) {
-        dpsToSet['20'] = payload.state.toUpperCase() === 'ON';
+        const isTrue = payload.state.toUpperCase() === 'ON';
+        if (gw.category === 'wifi_device') {
+          if (gw.dps['1'] !== undefined || Object.keys(gw.dps).length === 0) {
+            dpsToSet['1'] = isTrue;
+          }
+          if (gw.dps['20'] !== undefined) {
+            dpsToSet['20'] = isTrue;
+          }
+        } else {
+          dpsToSet['20'] = isTrue;
+        }
       }
 
       if (payload.brightness !== undefined) {

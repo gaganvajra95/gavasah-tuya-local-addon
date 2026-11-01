@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Gavasah Tuya LAN & DALI Manager</title>
+  <title>GAVASAH Tuya LAN Gateway</title>
   <style>
     :root {
       --bg: #0f172a;
@@ -56,37 +56,34 @@
     }
     .nav-tabs {
       display: flex;
-      gap: 8px;
+      gap: 6px;
+      flex-wrap: wrap;
     }
     .tab-btn {
       background: transparent;
       border: 1px solid transparent;
       color: var(--text-muted);
-      padding: 8px 16px;
-      border-radius: 8px;
+      padding: 7px 14px;
+      border-radius: 6px;
       cursor: pointer;
-      font-weight: 600;
-      font-size: 0.9rem;
+      font-size: 0.85rem;
+      font-weight: 500;
       transition: all 0.15s ease;
-      display: flex;
-      align-items: center;
-      gap: 8px;
     }
     .tab-btn:hover {
-      background: rgba(255, 255, 255, 0.05);
       color: var(--text);
+      background: rgba(255, 255, 255, 0.05);
     }
     .tab-btn.active {
-      background: var(--card-bg);
       color: #fff;
-      border-color: var(--card-border);
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+      background: var(--primary);
+      border-color: var(--primary);
     }
     .status-bar {
       display: flex;
       align-items: center;
       gap: 16px;
-      font-size: 0.85rem;
+      font-size: 0.8rem;
       color: var(--text-muted);
     }
     .indicator {
@@ -94,8 +91,8 @@
       height: 8px;
       border-radius: 50%;
       background: var(--accent);
-      display: inline-block;
       box-shadow: 0 0 8px var(--accent);
+      display: inline-block;
     }
     .indicator.offline {
       background: var(--danger);
@@ -104,7 +101,7 @@
     main {
       flex: 1;
       padding: 24px;
-      max-width: 1440px;
+      max-width: 1400px;
       margin: 0 auto;
       width: 100%;
     }
@@ -116,223 +113,162 @@
     }
     .section-title {
       font-size: 1.25rem;
-      font-weight: 700;
-      margin-bottom: 16px;
+      font-weight: 600;
+      margin-bottom: 20px;
       display: flex;
       align-items: center;
       justify-content: space-between;
     }
     .btn {
       background: var(--primary);
-      color: #fff;
+      color: white;
       border: none;
-      padding: 8px 14px;
+      padding: 8px 16px;
       border-radius: 6px;
-      cursor: pointer;
-      font-weight: 600;
       font-size: 0.85rem;
-      transition: background 0.15s ease;
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.15s;
     }
     .btn:hover { background: var(--primary-hover); }
-    .btn-secondary {
-      background: #334155;
-      color: var(--text);
-    }
+    .btn-secondary { background: var(--card-border); color: var(--text); }
     .btn-secondary:hover { background: #475569; }
-    .btn-danger {
-      background: var(--danger);
-    }
+    .btn-danger { background: var(--danger); color: white; }
     .btn-danger:hover { background: #dc2626; }
-    .btn-sm { padding: 4px 8px; font-size: 0.75rem; }
-
-    /* Gateway Group Container */
+    .btn-sm { padding: 4px 10px; font-size: 0.75rem; border-radius: 4px; }
     .gateway-group {
-      background: rgba(30, 41, 59, 0.5);
+      background: rgba(15, 23, 42, 0.6);
       border: 1px solid var(--card-border);
-      border-radius: 12px;
+      border-radius: 10px;
+      padding: 20px;
       margin-bottom: 24px;
-      overflow: hidden;
     }
     .gateway-group-header {
-      background: var(--card-bg);
-      padding: 14px 20px;
-      border-bottom: 1px solid var(--card-border);
       display: flex;
       align-items: center;
       justify-content: space-between;
-    }
-    .gw-title-area {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-    .gw-pill {
-      background: rgba(59, 130, 246, 0.15);
-      color: #60a5fa;
-      border: 1px solid rgba(59, 130, 246, 0.3);
-      padding: 3px 8px;
-      border-radius: 6px;
-      font-size: 0.75rem;
-      font-family: var(--font-mono);
+      margin-bottom: 16px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--card-border);
     }
     .device-grid {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
       gap: 16px;
-      padding: 20px;
     }
     .card {
       background: var(--card-bg);
       border: 1px solid var(--card-border);
-      border-radius: 10px;
-      padding: 18px;
+      border-radius: 8px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
       position: relative;
-      transition: transform 0.15s ease, border-color 0.15s ease;
-    }
-    .card:hover {
-      border-color: #475569;
-      transform: translateY(-2px);
     }
     .card-header {
       display: flex;
-      align-items: center;
+      align-items: flex-start;
       justify-content: space-between;
-      margin-bottom: 14px;
     }
     .device-name {
-      font-weight: 700;
-      font-size: 1rem;
+      font-weight: 600;
+      font-size: 0.95rem;
       display: flex;
       align-items: center;
-      gap: 6px;
+      gap: 8px;
     }
     .edit-icon {
       cursor: pointer;
-      color: var(--text-muted);
-      font-size: 0.85rem;
+      opacity: 0.6;
+      font-size: 0.8rem;
     }
-    .edit-icon:hover { color: var(--primary); }
+    .edit-icon:hover { opacity: 1; }
     .device-meta {
       font-size: 0.75rem;
       color: var(--text-muted);
-      margin-bottom: 14px;
-      display: flex;
-      justify-content: space-between;
+      font-family: var(--font-mono);
+      margin-top: 2px;
     }
-    .switch-row {
+    .badge {
+      display: inline-block;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 0.7rem;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+    .badge-primary { background: rgba(59, 130, 246, 0.15); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.3); }
+    .badge-accent { background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); }
+    .badge-warning { background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.3); }
+    .badge-danger { background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3); }
+    .control-row {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      margin-bottom: 14px;
-    }
-    .toggle {
-      position: relative;
-      display: inline-block;
-      width: 44px;
-      height: 24px;
-    }
-    .toggle input { opacity: 0; width: 0; height: 0; }
-    .slider-toggle {
-      position: absolute;
-      cursor: pointer;
-      top: 0; left: 0; right: 0; bottom: 0;
-      background-color: #475569;
-      transition: .2s;
-      border-radius: 24px;
-    }
-    .slider-toggle:before {
-      position: absolute;
-      content: "";
-      height: 18px; width: 18px;
-      left: 3px; bottom: 3px;
-      background-color: white;
-      transition: .2s;
-      border-radius: 50%;
-    }
-    input:checked + .slider-toggle { background-color: var(--accent); }
-    input:checked + .slider-toggle:before { transform: translateX(20px); }
-
-    .control-row {
-      margin-top: 10px;
+      gap: 12px;
     }
     .control-label {
       font-size: 0.8rem;
-      font-weight: 600;
       color: var(--text-muted);
-      display: flex;
-      justify-content: space-between;
-      margin-bottom: 4px;
     }
-    .range-slider {
-      width: 100%;
-      height: 6px;
-      border-radius: 3px;
-      background: #334155;
-      outline: none;
-      -webkit-appearance: none;
+    .switch-toggle {
+      position: relative;
+      width: 44px;
+      height: 24px;
+      background: var(--card-border);
+      border-radius: 12px;
+      cursor: pointer;
+      transition: background 0.2s;
     }
-    .range-slider::-webkit-slider-thumb {
-      -webkit-appearance: none;
-      width: 16px;
-      height: 16px;
+    .switch-toggle.on {
+      background: var(--accent);
+    }
+    .switch-toggle::after {
+      content: '';
+      position: absolute;
+      width: 18px;
+      height: 18px;
       border-radius: 50%;
-      background: var(--primary);
-      cursor: pointer;
+      background: white;
+      top: 3px;
+      left: 3px;
+      transition: transform 0.2s;
     }
-    .cct-slider::-webkit-slider-thumb { background: #f59e0b; }
-    .color-picker-row {
-      margin-top: 12px;
-      display: flex;
-      align-items: center;
-      gap: 10px;
+    .switch-toggle.on::after {
+      transform: translateX(20px);
     }
-    .color-input {
-      border: none;
-      width: 32px;
-      height: 32px;
-      border-radius: 6px;
-      background: transparent;
-      cursor: pointer;
+    .slider {
+      flex: 1;
+      accent-color: var(--primary);
     }
-
-    /* Gateway Inventory Table */
     .table-container {
       background: var(--card-bg);
       border: 1px solid var(--card-border);
-      border-radius: 10px;
-      overflow: hidden;
+      border-radius: 8px;
+      overflow-x: auto;
     }
     table {
       width: 100%;
       border-collapse: collapse;
       text-align: left;
-      font-size: 0.9rem;
+      font-size: 0.85rem;
     }
-    th {
-      background: #0f172a;
-      padding: 12px 18px;
-      font-weight: 600;
-      color: var(--text-muted);
+    th, td {
+      padding: 12px 16px;
       border-bottom: 1px solid var(--card-border);
     }
-    td {
-      padding: 14px 18px;
-      border-bottom: 1px solid #1e293b;
+    th {
+      background: #090d16;
+      color: var(--text-muted);
+      font-weight: 600;
     }
     tr:last-child td { border-bottom: none; }
-    tr:hover td { background: rgba(255, 255, 255, 0.02); }
-
-    /* Forms */
     .form-card {
       background: var(--card-bg);
       border: 1px solid var(--card-border);
-      border-radius: 12px;
+      border-radius: 8px;
       padding: 24px;
-      max-width: 600px;
-      margin-bottom: 24px;
     }
     .form-group {
       margin-bottom: 16px;
@@ -340,64 +276,104 @@
     .form-group label {
       display: block;
       font-size: 0.85rem;
-      font-weight: 600;
-      color: var(--text-muted);
       margin-bottom: 6px;
+      color: var(--text-muted);
     }
     .form-input {
       width: 100%;
       background: #0f172a;
       border: 1px solid var(--card-border);
-      color: #fff;
-      padding: 10px 14px;
       border-radius: 6px;
-      font-size: 0.9rem;
-      outline: none;
+      padding: 8px 12px;
+      color: white;
+      font-size: 0.85rem;
     }
-    .form-input:focus { border-color: var(--primary); }
+    .form-input:focus {
+      outline: none;
+      border-color: var(--primary);
+    }
     .form-hint {
       font-size: 0.75rem;
       color: var(--text-muted);
       margin-top: 4px;
     }
-
-    /* Packet Console */
     .console-box {
       background: #090d16;
       border: 1px solid var(--card-border);
       border-radius: 8px;
       padding: 12px;
       font-family: var(--font-mono);
-      font-size: 0.8rem;
-      height: 220px;
+      font-size: 0.75rem;
+      height: 180px;
       overflow-y: auto;
-      margin-top: 16px;
+      display: flex;
+      flex-direction: column-reverse;
     }
-    .log-line { margin-bottom: 4px; }
-    .log-time { color: #64748b; }
-    .log-tuya { color: #38bdf8; }
-    .log-mqtt { color: #a855f7; }
-    .log-error { color: #f87171; }
-    .log-action { color: #10b981; font-weight: bold; }
-
+    .console-line {
+      margin-bottom: 4px;
+      line-height: 1.4;
+    }
     .action-badge {
-      background: rgba(16, 185, 129, 0.2);
-      color: #34d399;
-      border: 1px solid rgba(16, 185, 129, 0.4);
+      background: rgba(245, 158, 11, 0.15);
+      border: 1px solid rgba(245, 158, 11, 0.3);
+      color: #fbbf24;
       padding: 6px 10px;
       border-radius: 6px;
-      font-size: 0.8rem;
-      font-weight: 600;
-      margin-top: 10px;
-      animation: pulseAction 1.5s ease;
+      font-size: 0.75rem;
       display: flex;
       align-items: center;
       gap: 6px;
+      animation: pulse 1s infinite alternate;
     }
-    @keyframes pulseAction {
-      0% { transform: scale(0.95); opacity: 0.6; }
-      50% { transform: scale(1.03); opacity: 1; }
-      100% { transform: scale(1); opacity: 1; }
+    @keyframes pulse {
+      from { opacity: 0.8; }
+      to { opacity: 1; }
+    }
+    .color-picker-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .color-input {
+      border: none;
+      width: 28px;
+      height: 28px;
+      border-radius: 4px;
+      cursor: pointer;
+      background: transparent;
+    }
+    .empty-radar {
+      background: #0f172a;
+      padding: 24px;
+      border-radius: 8px;
+      border: 1px dashed var(--card-border);
+      text-align: center;
+    }
+    .empty-radar .radar-icon {
+      font-size: 2rem;
+      margin-bottom: 8px;
+      display: block;
+    }
+    .empty-radar .radar-text {
+      font-weight: 600;
+      color: var(--text);
+      font-size: 0.95rem;
+    }
+    .empty-radar .radar-subtext {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+    .dp-badge {
+      display: inline-block;
+      background: #0f172a;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      border: 1px solid var(--card-border);
+      margin-right: 4px;
+      margin-bottom: 4px;
     }
   </style>
 </head>
@@ -406,27 +382,30 @@
     <div class="brand">
       <span class="indicator" id="main-status-ind"></span>
       <span>GAVASAH Tuya LAN</span>
-      <span class="brand-badge">Multi-Gateway Core</span>
+      <span class="brand-badge">Universal Core</span>
     </div>
     <div class="nav-tabs">
       <button class="tab-btn active" onclick="switchTab('devices')">Devices</button>
+      <button class="tab-btn" onclick="switchTab('wifi-devices')">WiFi Devices</button>
       <button class="tab-btn" onclick="switchTab('gateways')">Gateways</button>
       <button class="tab-btn" onclick="switchTab('all-devices')">All Devices</button>
       <button class="tab-btn" onclick="switchTab('add-gateway')">Add Gateway</button>
+      <button class="tab-btn" onclick="switchTab('add-wifi')">Add WiFi Devices</button>
     </div>
     <div class="status-bar">
-      <span id="gateway-count">1 Gateway Active</span>
+      <span id="gateway-count">0 Gateways</span>
+      <span id="wifi-count">0 WiFi Devices</span>
       <span id="mqtt-status">MQTT Online</span>
     </div>
   </header>
 
   <main>
-    <!-- TAB 1: DEVICES (Grouped by Gateway) -->
+    <!-- TAB 1: DEVICES (Gateway Sub-Devices) -->
     <div class="tab-content active" id="tab-devices">
       <div class="section-title">
-        <span>Connected Devices</span>
+        <span>Gateway Sub-Devices (DALI & Zigbee)</span>
         <div style="display:flex; gap:8px;">
-          <button class="btn btn-secondary btn-sm" onclick="refreshData()">Refresh</button>
+          <button class="btn btn-secondary btn-sm" onclick="refreshData()">🔄 Refresh</button>
           <button class="btn btn-sm" onclick="allOn()">All On</button>
           <button class="btn btn-secondary btn-sm" onclick="allOff()">All Off</button>
         </div>
@@ -436,10 +415,24 @@
       </div>
     </div>
 
-    <!-- TAB 2: GATEWAYS -->
+    <!-- TAB 2: WIFI DEVICES (Standalone Tuya Wi-Fi Devices) -->
+    <div class="tab-content" id="tab-wifi-devices">
+      <div class="section-title">
+        <span>Standalone Tuya Wi-Fi Devices</span>
+        <div style="display:flex; gap:8px;">
+          <button class="btn btn-secondary btn-sm" onclick="refreshData()">🔄 Refresh</button>
+          <button class="btn btn-sm" onclick="switchTab('add-wifi')">+ Add WiFi Device</button>
+        </div>
+      </div>
+      <div class="device-grid" id="wifi-devices-container">
+        <!-- Rendered dynamically -->
+      </div>
+    </div>
+
+    <!-- TAB 3: GATEWAYS -->
     <div class="tab-content" id="tab-gateways">
       <div class="section-title">
-        <span>Registered Gateways</span>
+        <span>Registered Tuya Gateways</span>
         <button class="btn btn-sm" onclick="switchTab('add-gateway')">+ Add Gateway</button>
       </div>
       <div class="table-container">
@@ -452,7 +445,7 @@
               <th>MAC Address</th>
               <th>Type</th>
               <th>Status</th>
-              <th>Devices</th>
+              <th>Sub-Devices</th>
               <th>Actions</th>
             </tr>
           </thead>
@@ -463,23 +456,18 @@
       </div>
     </div>
 
-    <!-- TAB 3: ALL DEVICES (Flat Grid & Diagnostics) -->
+    <!-- TAB 4: ALL DEVICES (Flat Topology) -->
     <div class="tab-content" id="tab-all-devices">
       <div class="section-title">
         <span>Unified Device Topology & Diagnostics</span>
-        <input type="text" id="device-search" placeholder="Search by name, CID, or gateway..." class="form-input" style="max-width: 300px; padding: 6px 12px;" oninput="filterAllDevices()">
+        <input type="text" id="device-search" placeholder="Search by name, IP, or ID..." class="form-input" style="max-width: 300px; padding: 6px 12px;" oninput="filterAllDevices()">
       </div>
       <div class="device-grid" id="all-devices-grid">
         <!-- Rendered dynamically -->
       </div>
-
-      <div style="margin-top: 24px;">
-        <div class="section-title">Real-Time Packet Monitor</div>
-        <div class="console-box" id="packet-console"></div>
-      </div>
     </div>
 
-    <!-- TAB 4: ADD GATEWAY -->
+    <!-- TAB 5: ADD GATEWAY -->
     <div class="tab-content" id="tab-add-gateway">
       <div class="section-title">
         <span>Commission New Tuya Gateway</span>
@@ -520,349 +508,568 @@
         <div class="form-card">
           <h3 style="margin-bottom: 14px;">Network Auto-Discovery Radar</h3>
           <p class="form-hint" style="margin-bottom: 16px;">Listens for Tuya UDP broadcast announcements on ports 6666/6667 and scans the local subnet.</p>
-          <button class="btn btn-secondary" onclick="scanNetwork()">Scan Subnet Now</button>
+          <button class="btn btn-secondary" onclick="scanNetwork()">📡 Scan Subnet Now</button>
           
           <div style="margin-top: 16px;" id="discovered-gateways-list">
-            <p style="color: var(--text-muted); font-size: 0.85rem;">No unadopted gateways detected yet. Ensure gateway is powered on.</p>
+            <div class="empty-radar">
+              <span class="radar-icon">📡</span>
+              <p class="radar-text">No New Gateways Found</p>
+              <p class="radar-subtext">All discovered gateways on this subnet have already been adopted.</p>
+            </div>
           </div>
         </div>
       </div>
     </div>
+
+    <!-- TAB 6: ADD WIFI DEVICES -->
+    <div class="tab-content" id="tab-add-wifi">
+      <div class="section-title">
+        <span>Commission Standalone Tuya Wi-Fi Device</span>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
+        <!-- Direct IP Commissioning for WiFi Device -->
+        <div class="form-card">
+          <h3 style="margin-bottom: 14px;">Direct IP Commissioning (Wi-Fi Device)</h3>
+          <p class="form-hint" style="margin-bottom: 16px;">Pair standalone Tuya Wi-Fi smart plugs, switches, bulbs, or curtains for 100% local control on TCP 6668.</p>
+          
+          <div class="form-group">
+            <label>Device IP Address</label>
+            <input type="text" id="add-wifi-ip" class="form-input" placeholder="e.g. 192.168.1.150">
+          </div>
+          <div class="form-group">
+            <label>Device Friendly Name</label>
+            <input type="text" id="add-wifi-name" class="form-input" placeholder="e.g. Living Room Socket">
+          </div>
+          <div class="form-group">
+            <label>Device ID / gwId</label>
+            <input type="text" id="add-wifi-id" class="form-input" placeholder="e.g. bf82a... or leave blank for auto">
+          </div>
+          <div class="form-group">
+            <label>Local Encryption Key (16 Characters)</label>
+            <input type="text" id="add-wifi-key" class="form-input" placeholder="16-character AES local key">
+          </div>
+          <div class="form-group">
+            <label>Device Type</label>
+            <select id="add-wifi-type" class="form-input">
+              <option value="switch">Smart Switch / Relay / Socket (DP 1)</option>
+              <option value="switch_multi">Multi-Gang Switch (DP 1, 2, 3, 4)</option>
+              <option value="light_dimmer">Dimmer / Light (DP 20, 22)</option>
+              <option value="light_cct">CCT Tunable Light (DP 20, 22, 23)</option>
+              <option value="light_rgbcw">RGBCW Smart Bulb (DP 20, 22, 23, 24)</option>
+              <option value="curtain">Curtain / Roller Blinds (DP 1, 2)</option>
+              <option value="generic">Generic Custom Tuya Endpoint</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Protocol Version</label>
+            <select id="add-wifi-version" class="form-input">
+              <option value="3.3">Version 3.3 (Standard)</option>
+              <option value="3.1">Version 3.1 (Legacy)</option>
+              <option value="3.4">Version 3.4 / 3.5</option>
+            </select>
+          </div>
+          <button class="btn" style="width: 100%; padding: 10px;" onclick="submitAddWifiDevice()">Commission WiFi Device</button>
+        </div>
+
+        <!-- WiFi Network Auto-Discovery Radar -->
+        <div class="form-card">
+          <h3 style="margin-bottom: 14px;">Wi-Fi Auto-Discovery Radar</h3>
+          <p class="form-hint" style="margin-bottom: 16px;">Captures real-time UDP announcements broadcast by Tuya Wi-Fi devices on ports 6666/6667.</p>
+          <button class="btn btn-secondary" onclick="scanWifiNetwork()">📶 Scan for WiFi Devices</button>
+          
+          <div style="margin-top: 16px;" id="discovered-wifi-list">
+            <div class="empty-radar">
+              <span class="radar-icon">📶</span>
+              <p class="radar-text">No New WiFi Devices Found</p>
+              <p class="radar-subtext">All detected Tuya Wi-Fi devices on this subnet are already commissioned.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SYSTEM EVENT LOG -->
+    <div style="margin-top: 24px;">
+      <div class="section-title" style="font-size: 1rem;">
+        <span>Live Packet Traffic & Protocol Events</span>
+        <button class="btn btn-secondary btn-sm" onclick="document.getElementById('console-log').innerHTML = ''">Clear Log</button>
+      </div>
+      <div class="console-box" id="console-log"></div>
+    </div>
   </main>
 
   <script>
-    const basePath = window.location.pathname.endsWith('/') 
-      ? window.location.pathname 
-      : window.location.pathname + '/';
-
+    const basePath = window.location.pathname.endsWith('/') ? window.location.pathname : window.location.pathname + '/';
     let gatewaysData = [];
-    let allDevicesData = [];
+    let wifiDevicesData = [];
+    let devicesData = [];
+    let discoveredData = [];
 
-    // Tab Navigation
     function switchTab(tabId) {
       document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-      document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
       const activeBtn = Array.from(document.querySelectorAll('.tab-btn')).find(b => b.getAttribute('onclick').includes(tabId));
       if (activeBtn) activeBtn.classList.add('active');
-      const targetContent = document.getElementById(`tab-${tabId}`);
-      if (targetContent) targetContent.classList.add('active');
+
+      document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+      const activeContent = document.getElementById(`tab-${tabId}`);
+      if (activeContent) activeContent.classList.add('active');
+
+      if (tabId === 'add-gateway') scanNetwork();
+      if (tabId === 'add-wifi') scanWifiNetwork();
     }
 
-    // WebSocket Stream
-    const wsProto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const ws = new WebSocket(`${wsProto}//${window.location.host}${basePath}ws`);
-    
-    ws.onopen = () => addLog('INFO', 'Connected to Gavasah Multi-Gateway WebSocket Stream.');
-    ws.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        if (data.type === 'packet') {
-          addLog('TUYA', `${data.direction === 'in' ? 'RX' : 'TX'} CMD: 0x${data.cmd.toString(16)} Data: ${JSON.stringify(data.data)}`);
-        } else if (data.type === 'remote_action') {
-          addLog('ACTION', `⚡ REMOTE EVENT [${data.subId}]: Button ${data.button} -> "${data.action}" (Raw DPs: ${JSON.stringify(data.dps)})`);
-          showActionBadge(data.gatewayId, data.subId, data.button, data.action);
-        } else if (data.type === 'state_update') {
-          updateDeviceState(data.gatewayId, data.subId, data.dps);
-        } else if (data.type === 'gateway_updated' || data.type === 'gateway_added' || data.type === 'renamed' || data.type === 'new_subdevice') {
-          refreshData();
-        } else if (data.type === 'log') {
-          addLog(data.level || 'INFO', data.msg);
-        }
-      } catch(e) {}
-    };
-
-    function addLog(level, msg) {
-      const box = document.getElementById('packet-console');
-      if (!box) return;
+    function addLog(source, msg) {
+      const box = document.getElementById('console-log');
       const time = new Date().toLocaleTimeString();
       const div = document.createElement('div');
-      div.className = 'log-line';
-      div.innerHTML = `<span class="log-time">[${time}]</span> <span class="log-${level.toLowerCase()}">[${level}]</span> ${escapeHtml(msg)}`;
-      box.appendChild(div);
-      box.scrollTop = box.scrollHeight;
+      div.className = 'console-line';
+      div.innerHTML = `<span style="color:var(--text-muted);">[${time}]</span> <strong style="color:var(--primary);">[${source}]</strong> ${escapeHtml(msg)}`;
+      box.insertBefore(div, box.firstChild);
     }
 
     function escapeHtml(str) {
-      return (str || '').toString().replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+      if (!str) return '';
+      return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
     }
 
-    // Fetch and render data
     async function refreshData() {
       try {
-        const [gwRes, devRes] = await Promise.all([
+        const [resGw, resWifi, resDev, resDisc] = await Promise.all([
           fetch(`${basePath}api/gateways`),
-          fetch(`${basePath}api/devices`)
+          fetch(`${basePath}api/wifi/devices`),
+          fetch(`${basePath}api/devices`),
+          fetch(`${basePath}api/discovery`)
         ]);
-        gatewaysData = await gwRes.json();
-        allDevicesData = await devRes.json();
+
+        gatewaysData = await resGw.json();
+        wifiDevicesData = await resWifi.json();
+        devicesData = await resDev.json();
+        discoveredData = await resDisc.json();
+
+        document.getElementById('gateway-count').innerText = `${gatewaysData.length} Gateway${gatewaysData.length === 1 ? '' : 's'}`;
+        document.getElementById('wifi-count').innerText = `${wifiDevicesData.length} WiFi Device${wifiDevicesData.length === 1 ? '' : 's'}`;
 
         renderGroupedDevices();
+        renderWifiDevicesGrid();
         renderGatewaysTable();
         renderAllDevicesGrid();
-        document.getElementById('gateway-count').innerText = `${gatewaysData.length} Gateway${gatewaysData.length > 1 ? 's' : ''} Active`;
-      } catch (e) {
-        console.error('Refresh failed:', e);
+      } catch (err) {
+        addLog('ERROR', 'Failed to fetch cluster data: ' + err.message);
       }
     }
 
     function renderGroupedDevices() {
       const container = document.getElementById('grouped-devices-container');
-      container.innerHTML = '';
+      if (gatewaysData.length === 0) {
+        container.innerHTML = '<p style="color:var(--text-muted);">No gateways registered yet. Click "Add Gateway" to get started.</p>';
+        return;
+      }
 
-      gatewaysData.forEach((gw) => {
-        const group = document.createElement('div');
-        group.className = 'gateway-group';
-
-        const header = document.createElement('div');
-        header.className = 'gateway-group-header';
-        header.innerHTML = `
-          <div class="gw-title-area">
-            <span class="indicator ${gw.connected ? '' : 'offline'}"></span>
-            <span style="font-weight: 700; font-size: 1.05rem;">${escapeHtml(gw.name)}</span>
-            <span class="gw-pill">IP: ${gw.ip}</span>
-            <span class="gw-pill">MAC: ${gw.mac || 'N/A'}</span>
-            <span class="edit-icon" onclick="promptRename('gateway', '${gw.id}', null, '${escapeHtml(gw.name)}')">✏️ Rename</span>
-          </div>
-          <div style="display:flex; gap:8px;">
-            <button class="btn btn-secondary btn-sm" onclick="rescanGateway('${gw.id}')">Rescan DALI</button>
+      container.innerHTML = gatewaysData.map(gw => {
+        const gwDevices = devicesData.filter(d => d.gatewayId === gw.id);
+        return `
+          <div class="gateway-group">
+            <div class="gateway-group-header">
+              <div>
+                <span class="indicator ${gw.connected ? '' : 'offline'}"></span>
+                <strong style="font-size:1.05rem; margin-left:6px;">${escapeHtml(gw.name)}</strong>
+                <span style="font-size:0.75rem; color:var(--text-muted); margin-left:8px; font-family:var(--font-mono);">${gw.ip} | MAC: ${gw.mac}</span>
+              </div>
+              <div style="display:flex; gap:8px; align-items:center;">
+                <span class="badge ${gw.connected ? 'badge-accent' : 'badge-danger'}">${gw.connected ? 'ONLINE (' + gw.latency + 'ms)' : 'OFFLINE'}</span>
+                <button class="btn btn-secondary btn-sm" onclick="rescanGateway('${gw.id}')">Rescan Sub-Devices</button>
+              </div>
+            </div>
+            <div class="device-grid">
+              ${gwDevices.length === 0 ? '<p style="color:var(--text-muted); font-size:0.85rem;">No sub-devices mapped for this gateway yet.</p>' : gwDevices.map(d => createDeviceCard(gw, d)).join('')}
+            </div>
           </div>
         `;
-        group.appendChild(header);
-
-        const grid = document.createElement('div');
-        grid.className = 'device-grid';
-
-        const devKeys = Object.keys(gw.subDevices || {});
-        if (devKeys.length === 0) {
-          grid.innerHTML = `<div style="grid-column: 1/-1; color: var(--text-muted); font-size: 0.9rem;">No sub-devices discovered on this gateway yet.</div>`;
-        } else {
-          devKeys.forEach((subId) => {
-            const dev = gw.subDevices[subId];
-            grid.appendChild(createDeviceCard(gw.id, gw.name, gw.ip, subId, dev));
-          });
-        }
-
-        group.appendChild(grid);
-        container.appendChild(group);
-      });
+      }).join('');
     }
 
-    function createDeviceCard(gwId, gwName, gwIp, subId, dev) {
-      const card = document.createElement('div');
-      card.className = 'card';
-      card.id = `card-${gwId}-${subId}`;
+    function createDeviceCard(gw, d) {
+      const dps = d.dps || {};
+      const isPowerOn = dps['20'] === true || dps['1'] === true;
+      const briVal = dps['22'] !== undefined ? Math.round(((dps['22'] - 10) / 990) * 100) : 100;
+      const cctVal = dps['23'] !== undefined ? Math.round((dps['23'] / 1000) * 100) : 50;
+      const isLight = d.type.includes('light') || d.type.includes('dimmer');
 
-      const dps = dev.dps || {};
-      const isPower = dps['20'] === true;
-      const briVal = dps['22'] !== undefined ? dps['22'] : 1000;
-      const briPct = Math.round(((briVal - 10) / 990) * 100);
-      const cctVal = dps['23'] !== undefined ? dps['23'] : 500;
-      const kelvin = Math.round(2000 + (cctVal / 1000) * 4500);
-      const isCct = dev.type === 'light_cct' || dev.type === 'light_rgbcw';
-      const isRgb = dev.type === 'light_rgb' || dev.type === 'light_rgbw' || dev.type === 'light_rgbcw';
+      return `
+        <div class="card" id="card-${gw.id}-${d.subId}">
+          <div class="card-header">
+            <div>
+              <div class="device-name">
+                <span>${escapeHtml(d.name)}</span>
+                <span class="edit-icon" title="Rename device" onclick="promptRename('device', '${gw.id}', '${d.subId}', '${escapeHtml(d.name)}')">✏️</span>
+              </div>
+              <div class="device-meta">ID: ${d.subId} | HW CID: ${d.devId || 'N/A'}</div>
+            </div>
+            <span class="badge badge-primary">${d.type.toUpperCase()}</span>
+          </div>
 
-      card.innerHTML = `
-        <div class="card-header">
-          <span class="device-name">
-            <span id="name-${gwId}-${subId}">${escapeHtml(dev.name || subId)}</span>
-            <span class="edit-icon" onclick="promptRename('device', '${gwId}', '${subId}', '${escapeHtml(dev.name || subId)}')">✏️</span>
-          </span>
-          <span class="gw-pill">${escapeHtml(dev.type || 'dimmer')}</span>
-        </div>
-        <div class="device-meta">
-          <span>CID: ${dev.devId || subId}</span>
-          <span style="color: #60a5fa;">via ${escapeHtml(gwName)}</span>
-        </div>
-        <div class="switch-row">
-          <span style="font-weight: 600; font-size: 0.9rem;">Power State</span>
-          <label class="toggle">
-            <input type="checkbox" id="power-${gwId}-${subId}" ${isPower ? 'checked' : ''} onchange="togglePower('${gwId}', '${subId}', this.checked)">
-            <span class="slider-toggle"></span>
-          </label>
-        </div>
-        <div class="control-row">
-          <div class="control-label">
-            <span>Brightness</span>
-            <span id="val-bri-${gwId}-${subId}">${briPct}%</span>
+          ${d.lastAction ? `
+            <div class="action-badge">
+              <span>⚡ Action:</span> <strong>${escapeHtml(d.lastAction.text || d.lastAction.action)}</strong>
+            </div>
+          ` : ''}
+
+          <div class="control-row">
+            <span class="control-label">Power</span>
+            <div class="switch-toggle ${isPowerOn ? 'on' : ''}\" onclick="togglePower('${gw.id}', '${d.subId}', ${isPowerOn})"></div>
           </div>
-          <input type="range" class="range-slider" min="10" max="1000" value="${briVal}" oninput="document.getElementById('val-bri-${gwId}-${subId}').innerText = Math.round(((this.value-10)/990)*100) + '%'" onchange="setBrightness('${gwId}', '${subId}', this.value)">
+
+          ${isLight ? `
+            <div class="control-row">
+              <span class="control-label">Brightness (${briVal}%)</span>
+              <input type="range" min="1" max="100" value="${briVal}" class="slider" onchange="setBrightness('${gw.id}', '${d.subId}', this.value)">
+            </div>
+          ` : ''}
+
+          ${(d.type === 'light_cct' || d.type === 'light_rgbcw') ? `
+            <div class="control-row">
+              <span class="control-label">CCT Kelvin</span>
+              <input type="range" min="0" max="100" value="${cctVal}" class="slider" onchange="setColorTemp('${gw.id}', '${d.subId}', this.value)">
+            </div>
+          ` : ''}
+
+          ${(d.type === 'light_rgb' || d.type === 'light_rgbw' || d.type === 'light_rgbcw') ? `
+            <div class="control-row color-picker-row">
+              <span class="control-label">Color RGB</span>
+              <input type="color" class="color-input" value="#ff9900" onchange="setColorRgb('${gw.id}', '${d.subId}', this.value)">
+            </div>
+          ` : ''}
         </div>
-        ${isCct ? `
-        <div class="control-row">
-          <div class="control-label">
-            <span>Color Temp</span>
-            <span id="val-cct-${gwId}-${subId}">${kelvin}K</span>
-          </div>
-          <input type="range" class="range-slider cct-slider" min="0" max="1000" value="${cctVal}" oninput="document.getElementById('val-cct-${gwId}-${subId}').innerText = Math.round(2000 + (this.value/1000)*4500) + 'K'" onchange="setColorTemp('${gwId}', '${subId}', this.value)">
-        </div>
-        ` : ''}
-        ${isRgb ? `
-        <div class="color-picker-row">
-          <span style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted);">RGB Hue</span>
-          <input type="color" class="color-input" value="#ff0000" onchange="setColorRgb('${gwId}', '${subId}', this.value)">
-        </div>
-        ` : ''}
       `;
-      return card;
+    }
+
+    function renderWifiDevicesGrid() {
+      const container = document.getElementById('wifi-devices-container');
+      if (wifiDevicesData.length === 0) {
+        container.innerHTML = '<p style="color:var(--text-muted); font-size:0.85rem;">No standalone Wi-Fi devices commissioned yet. Click "+ Add WiFi Device" or use the Auto-Discovery Radar.</p>';
+        return;
+      }
+
+      container.innerHTML = wifiDevicesData.map(dev => {
+        const dps = dev.dps || {};
+        const isPowerOn = dps['1'] === true || dps['20'] === true;
+        const briVal = dps['22'] !== undefined ? Math.round(((dps['22'] - 10) / 990) * 100) : (dps['2'] !== undefined ? dps['2'] : 100);
+        const cctVal = dps['23'] !== undefined ? Math.round((dps['23'] / 1000) * 100) : 50;
+
+        return `
+          <div class="card" id="card-wifi-${dev.id}">
+            <div class="card-header">
+              <div>
+                <div class="device-name">
+                  <span>${escapeHtml(dev.name)}</span>
+                  <span class="edit-icon" title="Rename Wi-Fi device" onclick="promptRename('wifi_device', '${dev.id}', null, '${escapeHtml(dev.name)}')">✏️</span>
+                </div>
+                <div class="device-meta">ID: ${dev.id} | IP: ${dev.ip}</div>
+              </div>
+              <span class="badge ${dev.connected ? 'badge-accent' : 'badge-danger'}">${dev.connected ? 'ONLINE' : 'OFFLINE'}</span>
+            </div>
+
+            <div class="control-row">
+              <span class="control-label">Main Power</span>
+              <div class="switch-toggle ${isPowerOn ? 'on' : ''}" onclick="toggleWifiPower('${dev.id}', ${isPowerOn}, '1')"></div>
+            </div>
+
+            ${dps['2'] !== undefined && typeof dps['2'] === 'boolean' ? `
+              <div class="control-row">
+                <span class="control-label">Gang 2</span>
+                <div class="switch-toggle ${dps['2'] ? 'on' : ''}" onclick="toggleWifiPower('${dev.id}', ${dps['2']}, '2')"></div>
+              </div>
+            ` : ''}
+
+            ${dps['3'] !== undefined && typeof dps['3'] === 'boolean' ? `
+              <div class="control-row">
+                <span class="control-label">Gang 3</span>
+                <div class="switch-toggle ${dps['3'] ? 'on' : ''}" onclick="toggleWifiPower('${dev.id}', ${dps['3']}, '3')"></div>
+              </div>
+            ` : ''}
+
+            ${(dps['22'] !== undefined || dev.type.includes('dimmer') || dev.type.includes('light')) ? `
+              <div class="control-row">
+                <span class="control-label">Brightness (${briVal}%)</span>
+                <input type="range" min="1" max="100" value="${briVal}" class="slider" onchange="setWifiBrightness('${dev.id}', this.value, '22')">
+              </div>
+            ` : ''}
+
+            ${(dps['23'] !== undefined || dev.type.includes('cct')) ? `
+              <div class="control-row">
+                <span class="control-label">CCT Kelvin</span>
+                <input type="range" min="0" max="100" value="${cctVal}" class="slider" onchange="setWifiColorTemp('${dev.id}', this.value, '23')">
+              </div>
+            ` : ''}
+
+            <!-- DP Inspector Accordion -->
+            <div style="background:#0f172a; padding:8px 12px; border-radius:6px; font-size:0.75rem;">
+              <div style="color:var(--text-muted); margin-bottom:4px; font-weight:600;">Reported Data Points (DPs):</div>
+              <div style="display:flex; flex-wrap:wrap; gap:4px;">
+                ${Object.entries(dps).map(([k, v]) => `
+                  <span class="dp-badge">DP ${k}: <strong style="color:#fff;">${JSON.stringify(v)}</strong></span>
+                `).join('') || '<span style="color:var(--text-muted);">No DPs received yet. Click Query.</span>'}
+              </div>
+            </div>
+
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-top:4px;">
+              <button class="btn btn-secondary btn-sm" onclick="queryDeviceStatus('${dev.id}')">🔄 Query Status</button>
+              <button class="btn btn-danger btn-sm" onclick="deleteWifiDevice('${dev.id}')">🗑️ Delete</button>
+            </div>
+          </div>
+        `;
+      }).join('');
     }
 
     function renderGatewaysTable() {
       const tbody = document.getElementById('gateways-table-body');
-      tbody.innerHTML = '';
-
-      gatewaysData.forEach((gw) => {
-        const tr = document.createElement('tr');
-        const cooldownBadge = gw.cooldownRemaining > 0 
-          ? `<span class="gw-pill" style="color:#f59e0b; border-color:rgba(245,158,11,0.4);">⏳ Cooldown (${Math.floor(gw.cooldownRemaining/60)}m ${gw.cooldownRemaining%60}s)</span>`
-          : `<span class="gw-pill" style="color:#10b981; border-color:rgba(16,185,129,0.4);">Ready</span>`;
-
-        tr.innerHTML = `
-          <td><strong>${escapeHtml(gw.name)}</strong></td>
-          <td><span class="gw-pill">${gw.id}</span></td>
-          <td><span style="color:#60a5fa; font-family:var(--font-mono);">${gw.ip}:${gw.port}</span></td>
+      tbody.innerHTML = gatewaysData.map(gw => `
+        <tr>
           <td>
-            <div style="font-family:var(--font-mono); font-size:0.85rem;">${gw.mac || 'N/A'}</div>
-            <div style="margin-top:4px;">${cooldownBadge}</div>
+            <strong>${escapeHtml(gw.name)}</strong>
+            <span class="edit-icon" style="margin-left:6px;" onclick="promptRename('gateway', '${gw.id}', null, '${escapeHtml(gw.name)}')">✏️</span>
           </td>
+          <td style="font-family:var(--font-mono); font-size:0.8rem;">${gw.id}</td>
+          <td style="font-family:var(--font-mono);">
+            <span>${gw.ip}</span>
+            <span class="badge badge-primary" style="margin-left:6px;">DHCP Dynamic</span>
+          </td>
+          <td style="font-family:var(--font-mono); font-size:0.8rem;">${gw.mac}</td>
           <td>${escapeHtml(gw.type)}</td>
-          <td><span class="indicator ${gw.connected ? '' : 'offline'}"></span> ${gw.connected ? 'Connected' : 'Offline'}</td>
-          <td>${gw.subDeviceCount || 0}</td>
           <td>
-            <button class="btn btn-secondary btn-sm" id="btn-scan-${gw.id}" onclick="scanGatewayMac('${gw.id}')">🔄 Refresh IP (MAC)</button>
-            <button class="btn btn-secondary btn-sm" onclick="promptRename('gateway', '${gw.id}', null, '${escapeHtml(gw.name)}')">Rename</button>
-            <button class="btn btn-secondary btn-sm" onclick="rescanGateway('${gw.id}')">Rescan</button>
-            <button class="btn btn-danger btn-sm" onclick="deleteGateway('${gw.id}')">Delete</button>
+            <span class="badge ${gw.connected ? 'badge-accent' : 'badge-danger'}">
+              ${gw.connected ? 'Online (' + gw.latency + 'ms)' : 'Offline'}
+            </span>
           </td>
-        `;
-        tbody.appendChild(tr);
-      });
-    }
-
-    async function scanGatewayMac(id) {
-      const btn = document.getElementById(`btn-scan-${id}`);
-      const origText = btn ? btn.innerHTML : '';
-      if (btn) {
-        btn.innerHTML = '🔄 Scanning Subnet...';
-        btn.disabled = true;
-      }
-
-      addLog('INFO', `Triggering manual MAC address resolution for gateway ${id}...`);
-      try {
-        const res = await fetch(`${basePath}api/gateway/resolve-mac`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id })
-        });
-        const result = await res.json();
-
-        if (result.success) {
-          addLog('INFO', `🎯 Resolution Complete: Gateway located at ${result.newIp} (was ${result.oldIp}). Socket reconnected.`);
-          alert(`Gateway located successfully!\nIP: ${result.newIp}${result.changed ? ' (Updated from ' + result.oldIp + ')' : ' (Confirmed online)'}`);
-        } else {
-          addLog('WARN', `MAC scan finished: ${result.message || 'Host matching MAC not found on local subnet.'}`);
-          alert(`MAC Resolution: ${result.message || 'No active host found matching this MAC on the local subnet.'}`);
-        }
-      } catch (e) {
-        addLog('ERROR', `MAC scan request failed: ${e.message}`);
-        alert(`Scan failed: ${e.message}`);
-      } finally {
-        if (btn) {
-          btn.innerHTML = origText;
-          btn.disabled = false;
-        }
-        refreshData();
-      }
+          <td>${gw.subDeviceCount || 0} Endpoints</td>
+          <td>
+            <div style="display:flex; gap:6px;">
+              <button class="btn btn-secondary btn-sm" onclick="scanGatewayMac('${gw.id}')">🔄 Refresh IP (MAC)</button>
+              <button class="btn btn-danger btn-sm" onclick="deleteGateway('${gw.id}')">Delete</button>
+            </div>
+          </td>
+        </tr>
+      `).join('');
     }
 
     function renderAllDevicesGrid() {
-      const grid = document.getElementById('all-devices-grid');
-      grid.innerHTML = '';
-      allDevicesData.forEach((d) => {
-        grid.appendChild(createDeviceCard(d.gatewayId, d.gatewayName, d.gatewayIp, d.subId, d));
+      const container = document.getElementById('all-devices-grid');
+      const allList = [];
+
+      devicesData.forEach(d => {
+        allList.push({
+          id: `${d.gatewayId}_${d.subId}`,
+          name: d.name,
+          source: `Gateway: ${d.gatewayName}`,
+          category: 'Gateway Sub-Device',
+          type: d.type,
+          dps: d.dps || {},
+          connected: d.gatewayConnected
+        });
       });
+
+      wifiDevicesData.forEach(w => {
+        allList.push({
+          id: w.id,
+          name: w.name,
+          source: `Wi-Fi Direct (${w.ip})`,
+          category: 'Standalone Wi-Fi',
+          type: w.type,
+          dps: w.dps || {},
+          connected: w.connected
+        });
+      });
+
+      container.innerHTML = allList.map(item => `
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <div class="device-name">${escapeHtml(item.name)}</div>
+              <div class="device-meta">${escapeHtml(item.source)} | ID: ${item.id}</div>
+            </div>
+            <span class="badge ${item.connected ? 'badge-accent' : 'badge-danger'}">${item.connected ? 'ONLINE' : 'OFFLINE'}</span>
+          </div>
+          <div style="font-size:0.75rem; color:var(--text-muted);">
+            Type: <strong>${escapeHtml(item.type)}</strong> | Class: <strong>${escapeHtml(item.category)}</strong>
+          </div>
+          <div style="background:#0f172a; padding:6px 10px; border-radius:6px; font-family:var(--font-mono); font-size:0.75rem;">
+            ${Object.entries(item.dps).map(([k, v]) => `DP ${k}: ${JSON.stringify(v)}`).join(' | ') || 'No DPs recorded'}
+          </div>
+        </div>
+      `).join('');
     }
 
     function filterAllDevices() {
       const query = document.getElementById('device-search').value.toLowerCase();
-      const cards = document.getElementById('all-devices-grid').children;
-      Array.from(cards).forEach((card) => {
-        card.style.display = card.innerText.toLowerCase().includes(query) ? '' : 'none';
+      document.querySelectorAll('#all-devices-grid .card').forEach(card => {
+        const text = card.innerText.toLowerCase();
+        card.style.display = text.includes(query) ? 'flex' : 'none';
       });
     }
 
-    // Hardware Actions
-    async function togglePower(gwId, subId, state) {
-      addLog('TUYA', `Dispatching Power ${state ? 'ON' : 'OFF'} -> ${gwId}/${subId}`);
+    async function togglePower(gwId, subId, currentVal) {
+      const newVal = !currentVal;
+      addLog('CONTROL', `Toggling Power [${subId}] -> ${newVal ? 'ON' : 'OFF'}`);
       await fetch(`${basePath}api/control`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ gatewayId: gwId, subId, dps: { '20': state } })
+        body: JSON.stringify({ gatewayId: gwId, subId: subId, dps: { '20': newVal } })
       });
     }
 
-    async function setBrightness(gwId, subId, val) {
-      addLog('TUYA', `Dispatching Brightness ${val} -> ${gwId}/${subId}`);
+    async function setBrightness(gwId, subId, percent) {
+      const rawBri = Math.round(10 + (percent / 100) * 990);
+      addLog('CONTROL', `Setting Brightness [${subId}] -> ${percent}% (${rawBri})`);
       await fetch(`${basePath}api/control`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ gatewayId: gwId, subId, dps: { '22': parseInt(val), '20': true } })
+        body: JSON.stringify({ gatewayId: gwId, subId: subId, dps: { '20': true, '22': rawBri } })
       });
     }
 
-    async function setColorTemp(gwId, subId, val) {
-      addLog('TUYA', `Dispatching Color Temp ${val} -> ${gwId}/${subId}`);
+    async function setColorTemp(gwId, subId, percent) {
+      const rawCct = Math.round((percent / 100) * 1000);
+      addLog('CONTROL', `Setting Color Temp [${subId}] -> ${percent}% (${rawCct})`);
       await fetch(`${basePath}api/control`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ gatewayId: gwId, subId, dps: { '23': parseInt(val) } })
+        body: JSON.stringify({ gatewayId: gwId, subId: subId, dps: { '20': true, '21': 'white', '23': rawCct } })
       });
     }
 
-    async function setColorRgb(gwId, subId, hex) {
-      const r = parseInt(hex.slice(1, 3), 16);
-      const g = parseInt(hex.slice(3, 5), 16);
-      const b = parseInt(hex.slice(5, 7), 16);
-      addLog('TUYA', `Dispatching RGB [${r},${g},${b}] -> ${gwId}/${subId}`);
-      // Tuya DP 24 HSV conversion
+    async function setColorRgb(gwId, subId, hexColor) {
+      const r = parseInt(hexColor.substr(1, 2), 16);
+      const g = parseInt(hexColor.substr(3, 2), 16);
+      const b = parseInt(hexColor.substr(5, 2), 16);
+      addLog('CONTROL', `Setting Color RGB [${subId}] -> ${hexColor}`);
       await fetch(`${basePath}api/control`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          gatewayId: gwId,
-          subId,
-          dps: { '20': true, '21': 'colour' }
-        })
+        body: JSON.stringify({ gatewayId: gwId, subId: subId, dps: { '20': true, '21': 'colour', '24': rgbToHsvHex(r, g, b) } })
       });
+    }
+
+    async function toggleWifiPower(devId, currentVal, dpId) {
+      const newVal = !currentVal;
+      addLog('CONTROL', `Toggling Wi-Fi Power [${devId}] -> ${newVal ? 'ON' : 'OFF'}`);
+      await fetch(`${basePath}api/control`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ deviceId: devId, dps: { [dpId]: newVal } })
+      });
+    }
+
+    async function setWifiBrightness(devId, percent, dpId) {
+      const rawBri = Math.round(10 + (percent / 100) * 990);
+      addLog('CONTROL', `Setting Wi-Fi Brightness [${devId}] -> ${percent}%`);
+      await fetch(`${basePath}api/control`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ deviceId: devId, dps: { [dpId]: rawBri, '1': true, '20': true } })
+      });
+    }
+
+    async function setWifiColorTemp(devId, percent, dpId) {
+      const rawCct = Math.round((percent / 100) * 1000);
+      addLog('CONTROL', `Setting Wi-Fi CCT [${devId}] -> ${percent}%`);
+      await fetch(`${basePath}api/control`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ deviceId: devId, dps: { [dpId]: rawCct, '1': true, '20': true } })
+      });
+    }
+
+    async function queryDeviceStatus(devId) {
+      addLog('QUERY', `Requesting real-time DP query for [${devId}]...`);
+      await fetch(`${basePath}api/device/query`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: devId })
+      });
+    }
+
+    function rgbToHsvHex(r, g, b) {
+      r /= 255; g /= 255; b /= 255;
+      const max = Math.max(r, g, b), min = Math.min(r, g, b);
+      let h = 0, s = 0, v = max;
+      const d = max - min;
+      s = max === 0 ? 0 : d / max;
+      if (max !== min) {
+        switch (max) {
+          case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+          case g: h = (b - r) / d + 2; break;
+          case b: h = (r - g) / d + 4; break;
+        }
+        h /= 6;
+      }
+      const tuyaH = Math.round(h * 360).toString(16).padStart(4, '0');
+      const tuyaS = Math.round(s * 1000).toString(16).padStart(4, '0');
+      const tuyaV = Math.round(v * 1000).toString(16).padStart(4, '0');
+      return `${tuyaH}${tuyaS}${tuyaV}`;
     }
 
     async function promptRename(targetType, id, subId, currentName) {
-      const newName = prompt(`Enter new friendly name:`, currentName);
-      if (!newName || newName.trim() === currentName) return;
+      const newName = prompt(`Enter new friendly name for ${currentName}:`, currentName);
+      if (!newName || newName.trim() === '' || newName === currentName) return;
 
-      await fetch(`${basePath}api/rename`, {
+      addLog('RENAME', `Renaming ${id} (${subId || 'gateway'}) -> "${newName}"`);
+      const res = await fetch(`${basePath}api/rename`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ targetType, id, subId, name: newName.trim() })
       });
-      refreshData();
+
+      if (res.ok) {
+        refreshData();
+      } else {
+        alert('Failed to rename: ' + (await res.text()));
+      }
     }
 
-    async function rescanGateway(id) {
-      addLog('INFO', `Rescanning sub-devices on gateway ${id}...`);
+    async function rescanGateway(gwId) {
+      addLog('GATEWAY', `Rescanning endpoints for gateway ${gwId}...`);
       await fetch(`${basePath}api/gateway/rescan`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id })
+        body: JSON.stringify({ id: gwId })
       });
       refreshData();
     }
 
-    async function deleteGateway(id) {
-      if (!confirm(`Are you sure you want to remove gateway ${id}?`)) return;
+    async function scanGatewayMac(gwId) {
+      addLog('MAC_SCAN', `Resolving IP by MAC for gateway ${gwId}...`);
+      const res = await fetch(`${basePath}api/gateway/resolve-mac`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: gwId })
+      });
+      const data = await res.json();
+      if (data.success) {
+        addLog('MAC_SCAN', `Successfully resolved MAC ${data.mac} to IP ${data.newIp || data.currentIp}`);
+        refreshData();
+      } else {
+        addLog('MAC_SCAN', `MAC resolution failed: ${data.message || data.error}`);
+        alert(`MAC Scan: ${data.message || data.error}`);
+      }
+    }
+
+    async function deleteGateway(gwId) {
+      if (!confirm(`Are you sure you want to remove gateway ${gwId}?`)) return;
       await fetch(`${basePath}api/gateway/delete`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id })
+        body: JSON.stringify({ id: gwId })
+      });
+      refreshData();
+    }
+
+    async function deleteWifiDevice(devId) {
+      if (!confirm(`Are you sure you want to remove Wi-Fi device ${devId}?`)) return;
+      await fetch(`${basePath}api/wifi/delete`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: devId })
       });
       refreshData();
     }
@@ -874,23 +1081,58 @@
       const autoRecover = document.getElementById('add-gw-autorecover').checked;
 
       if (!ip) {
-        alert('Please enter a valid Gateway IP address.');
+        alert('Please enter a gateway IP address.');
         return;
       }
 
-      addLog('INFO', `Adopting gateway at ${ip} (auto-recover: ${autoRecover})...`);
+      addLog('COMMISSION', `Commissioning gateway at ${ip}...`);
       const res = await fetch(`${basePath}api/gateway/add`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ip, name, type, autoRecover })
       });
-      const data = await res.json();
-      if (data.success) {
-        alert(`Gateway successfully commissioned! Found ${data.gateway.subDeviceCount} sub-devices.`);
+
+      if (res.ok) {
+        addLog('COMMISSION', `Gateway ${ip} commissioned successfully.`);
+        document.getElementById('add-gw-ip').value = '';
+        document.getElementById('add-gw-name').value = '';
         switchTab('gateways');
         refreshData();
       } else {
-        alert(`Commissioning failed: ${data.error}`);
+        alert('Failed to commission gateway: ' + (await res.text()));
+      }
+    }
+
+    async function submitAddWifiDevice() {
+      const ip = document.getElementById('add-wifi-ip').value.trim();
+      const name = document.getElementById('add-wifi-name').value.trim();
+      const id = document.getElementById('add-wifi-id').value.trim();
+      const local_key = document.getElementById('add-wifi-key').value.trim();
+      const type = document.getElementById('add-wifi-type').value;
+      const version = document.getElementById('add-wifi-version').value;
+
+      if (!ip) {
+        alert('Please enter a device IP address.');
+        return;
+      }
+
+      addLog('COMMISSION', `Commissioning Wi-Fi device at ${ip}...`);
+      const res = await fetch(`${basePath}api/wifi/add`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ip, name, id, local_key, type, version })
+      });
+
+      if (res.ok) {
+        addLog('COMMISSION', `Wi-Fi device ${ip} commissioned successfully.`);
+        document.getElementById('add-wifi-ip').value = '';
+        document.getElementById('add-wifi-name').value = '';
+        document.getElementById('add-wifi-id').value = '';
+        document.getElementById('add-wifi-key').value = '';
+        switchTab('wifi-devices');
+        refreshData();
+      } else {
+        alert('Failed to commission Wi-Fi device: ' + (await res.text()));
       }
     }
 
@@ -899,18 +1141,73 @@
       const res = await fetch(`${basePath}api/discovery`);
       const devs = await res.json();
       const container = document.getElementById('discovered-gateways-list');
-      if (!devs || devs.length === 0) {
-        container.innerHTML = `<p style="color:var(--text-muted); font-size:0.85rem;">No new unadopted devices found. Searching...</p>`;
-      } else {
-        container.innerHTML = devs.map(d => `
-          <div style="background:#0f172a; padding:10px; border-radius:6px; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center;">
-            <div>
-              <div style="font-weight:600;">${d.gwId}</div>
-              <div style="font-size:0.75rem; color:var(--text-muted);">IP: ${d.ip} (v${d.version})</div>
-            </div>
-            <button class="btn btn-sm" onclick="adoptDiscovered('${d.ip}', '${d.gwId}')">Adopt Gateway</button>
+
+      // Filter out already added gateways
+      const unadded = (devs || []).filter(d => {
+        const did = d.id || d.gwId || d.devId;
+        return !gatewaysData.some(g => g.id === did || g.ip === d.ip);
+      });
+
+      if (unadded.length === 0) {
+        container.innerHTML = `
+          <div class="empty-radar">
+            <span class="radar-icon">📡</span>
+            <p class="radar-text">No New Gateways Found</p>
+            <p class="radar-subtext">All discovered gateways on this subnet have already been adopted.</p>
           </div>
-        `).join('');
+        `;
+      } else {
+        container.innerHTML = unadded.map(d => {
+          const did = d.gwId || d.id || d.devId;
+          return `
+            <div style="background:#0f172a; padding:12px; border-radius:8px; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center; border:1px solid var(--card-border);">
+              <div>
+                <div style="font-weight:600; color:var(--text);">${escapeHtml(did)}</div>
+                <div style="font-size:0.75rem; color:var(--text-muted);">IP: ${d.ip} | Version: v${d.version || '3.3'}</div>
+              </div>
+              <button class="btn btn-sm" onclick="adoptDiscovered('${d.ip}', '${did}')">Adopt Gateway</button>
+            </div>
+          `;
+        }).join('');
+      }
+    }
+
+    async function scanWifiNetwork() {
+      addLog('DISCOVERY', 'Scanning local network for standalone Tuya Wi-Fi devices...');
+      const res = await fetch(`${basePath}api/discovery`);
+      const devs = await res.json();
+      const container = document.getElementById('discovered-wifi-list');
+
+      // Filter out already added devices (both gateways and wifi devices)
+      const allExistingIds = [...gatewaysData.map(g => g.id), ...wifiDevicesData.map(w => w.id)];
+      const allExistingIps = [...gatewaysData.map(g => g.ip), ...wifiDevicesData.map(w => w.ip)];
+
+      const unadded = (devs || []).filter(d => {
+        const did = d.id || d.gwId || d.devId;
+        return !allExistingIds.includes(did) && !allExistingIps.includes(d.ip);
+      });
+
+      if (unadded.length === 0) {
+        container.innerHTML = `
+          <div class="empty-radar">
+            <span class="radar-icon">📶</span>
+            <p class="radar-text">No New WiFi Devices Found</p>
+            <p class="radar-subtext">All detected Tuya Wi-Fi devices on this subnet are already commissioned.</p>
+          </div>
+        `;
+      } else {
+        container.innerHTML = unadded.map(d => {
+          const did = d.id || d.gwId || d.devId;
+          return `
+            <div style="background:#0f172a; padding:12px; border-radius:8px; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center; border:1px solid var(--card-border);">
+              <div>
+                <div style="font-weight:600; color:var(--text);">${escapeHtml(did)}</div>
+                <div style="font-size:0.75rem; color:var(--text-muted);">IP: ${d.ip} | Version: v${d.version || '3.3'}</div>
+              </div>
+              <button class="btn btn-sm" onclick="adoptDiscoveredWifi('${d.ip}', '${did}')">Adopt WiFi Device</button>
+            </div>
+          `;
+        }).join('');
       }
     }
 
@@ -920,45 +1217,69 @@
       submitAddGateway();
     }
 
-    function showActionBadge(gwId, subId, button, action) {
-      const card = document.getElementById(`card-${gwId}-${subId}`);
-      if (!card) return;
-      let badge = card.querySelector('.action-badge');
-      if (!badge) {
-        badge = document.createElement('div');
-        badge.className = 'action-badge';
-        card.appendChild(badge);
-      }
-      const time = new Date().toLocaleTimeString();
-      badge.innerHTML = `<span>⚡ Action Triggered:</span> <strong>Button ${escapeHtml(button)} (${escapeHtml(action)})</strong> <span style="font-size:0.7rem; color:var(--text-muted); margin-left:auto;">${time}</span>`;
-    }
-
-    function updateDeviceState(gwId, subId, dps) {
-      if (!dps) return;
-      if (dps['20'] !== undefined) {
-        const pwr = document.getElementById(`power-${gwId}-${subId}`);
-        if (pwr) pwr.checked = dps['20'];
-      }
-      if (dps['22'] !== undefined) {
-        const briLabel = document.getElementById(`val-bri-${gwId}-${subId}`);
-        if (briLabel) briLabel.innerText = Math.round(((dps['22'] - 10) / 990) * 100) + '%';
-      }
-      if (dps['23'] !== undefined) {
-        const cctLabel = document.getElementById(`val-cct-${gwId}-${subId}`);
-        if (cctLabel) cctLabel.innerText = Math.round(2000 + (dps['23'] / 1000) * 4500) + 'K';
-      }
+    function adoptDiscoveredWifi(ip, devId) {
+      document.getElementById('add-wifi-ip').value = ip;
+      document.getElementById('add-wifi-name').value = `WiFi Device ${ip}`;
+      document.getElementById('add-wifi-id').value = devId;
+      document.getElementById('add-wifi-key').focus();
     }
 
     function allOn() {
-      allDevicesData.forEach(d => togglePower(d.gatewayId, d.subId, true));
+      devicesData.forEach(d => {
+        fetch(`${basePath}api/control`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ gatewayId: d.gatewayId, subId: d.subId, dps: { '20': true } })
+        });
+      });
     }
 
     function allOff() {
-      allDevicesData.forEach(d => togglePower(d.gatewayId, d.subId, false));
+      devicesData.forEach(d => {
+        fetch(`${basePath}api/control`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ gatewayId: d.gatewayId, subId: d.subId, dps: { '20': false } })
+        });
+      });
     }
 
-    // Initial load
+    // Connect WebSocket for sub-millisecond bidirectional push updates
+    function connectWs() {
+      const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const wsUrl = `${proto}//${window.location.host}${basePath}ws`;
+      const ws = new WebSocket(wsUrl);
+
+      ws.onopen = () => {
+        document.getElementById('main-status-ind').classList.remove('offline');
+        addLog('WS', 'Connected to real-time event stream.');
+      };
+
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          if (data.type === 'log') {
+            addLog(data.level, data.msg);
+          } else if (data.type === 'state_update') {
+            refreshData();
+          } else if (data.type === 'remote_action') {
+            addLog('ACTION', `Remote Button ${data.button}: ${data.action} on [${data.subId}]`);
+            refreshData();
+          } else if (data.type === 'gateway_updated' || data.type === 'gateway_added' || data.type === 'new_subdevice' || data.type === 'renamed') {
+            refreshData();
+          }
+        } catch (e) {}
+      };
+
+      ws.onclose = () => {
+        document.getElementById('main-status-ind').classList.add('offline');
+        setTimeout(connectWs, 3000);
+      };
+    }
+
+    // Initialize on page load
     refreshData();
+    connectWs();
   </script>
 </body>
 </html>

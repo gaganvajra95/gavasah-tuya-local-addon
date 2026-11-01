@@ -1,6 +1,7 @@
 /**
  * GAVASAH Tuya LAN Gateway - Main Server Entrypoint
  * Multi-Gateway Orchestration, Dynamic DHCP Re-binding, MQTT Bridge, and Web Ingress
+ * Supports both Gateways (DALI, Zigbee) and Standalone Tuya Wi-Fi Devices
  */
 
 const fs = require('fs');
@@ -96,8 +97,9 @@ gatewayMgr.on('raw-packet', (packet) => {
 gatewayMgr.on('status', (data) => {
   broadcastWs({
     type: 'state_update',
-    gatewayId: data.gateway.id,
-    subId: data.subId,
+    gatewayId: data.gateway ? data.gateway.id : data.id,
+    subId: data.subId || 'root',
+    category: (data.gateway && data.gateway.category) || data.category || 'gateway',
     dps: data.dps
   });
 });
@@ -116,7 +118,8 @@ gatewayMgr.on('action', (data) => {
 
 gatewayMgr.on('gateway-added', (gw) => {
   mqttBridge.registerGateway(gw);
-  broadcastWs({ type: 'gateway_added', gateway: gatewayMgr.getGatewayInfo(gw) });
+  const info = gw.category === 'wifi_device' ? gatewayMgr.getWifiDeviceInfo(gw) : gatewayMgr.getGatewayInfo(gw);
+  broadcastWs({ type: 'gateway_added', gateway: info });
 });
 
 gatewayMgr.on('gateway-updated', (info) => {
@@ -128,13 +131,18 @@ gatewayMgr.on('new-subdevice', (data) => {
 });
 
 gatewayMgr.on('renamed', (info) => {
-  if (info.targetType === 'gateway') {
-    const gw = gatewayMgr.gateways.get(info.id);
-    if (gw) mqttBridge.publishGatewayDiscovery(gw);
-  } else if (info.targetType === 'device') {
-    const gw = gatewayMgr.gateways.get(info.id);
-    if (gw && gw.subDevices && gw.subDevices[info.subId]) {
-      mqttBridge.publishSubDeviceDiscovery(gw, info.subId, gw.subDevices[info.subId]);
+  const gw = gatewayMgr.gateways.get(info.id);
+  if (gw) {
+    if (gw.category === 'wifi_device' || info.targetType === 'wifi_device') {
+      mqttBridge.publishWifiDeviceDiscovery(gw);
+      mqttBridge.publishDeviceState(gw, 'root');
+    } else if (info.targetType === 'gateway') {
+      mqttBridge.publishGatewayDiscovery(gw);
+    } else if (info.targetType === 'device') {
+      if (gw.subDevices && gw.subDevices[info.subId]) {
+        mqttBridge.publishSubDeviceDiscovery(gw, info.subId, gw.subDevices[info.subId]);
+        mqttBridge.publishDeviceState(gw, info.subId);
+      }
     }
   }
   broadcastWs({ type: 'renamed', ...info });
@@ -152,10 +160,13 @@ discovery.on('log', (msg) => {
   broadcastWs({ type: 'log', level: 'DISCOVERY', msg });
 });
 
-discovery.on('raw-discovery', (disc) => {
-  // If IP changed via DHCP, immediately rebind TCP socket
+discovery.on('discovered', (disc) => {
   gatewayMgr.handleDiscoveredEndpoint(disc);
   broadcastWs({ type: 'discovered_endpoint', endpoint: disc });
+});
+
+discovery.on('raw-discovery', (disc) => {
+  gatewayMgr.handleDiscoveredEndpoint(disc);
 });
 
 if (options.auto_discover_udp) {
@@ -167,8 +178,16 @@ app.get('/api/gateways', (req, res) => {
   res.json(gatewayMgr.getAllGateways());
 });
 
+app.get('/api/wifi/devices', (req, res) => {
+  res.json(gatewayMgr.getAllWifiDevices());
+});
+
 app.get('/api/devices', (req, res) => {
   res.json(gatewayMgr.getAllDevices());
+});
+
+app.get('/api/entities', (req, res) => {
+  res.json(gatewayMgr.getAllEntities());
 });
 
 app.get('/api/discovery', (req, res) => {
@@ -178,17 +197,49 @@ app.get('/api/discovery', (req, res) => {
 // Hardware Control Endpoint
 app.post('/api/control', (req, res) => {
   const { gatewayId, deviceId, subId, dps } = req.body;
-  const targetGwId = gatewayId || deviceId || 'd7b3f345b23032557azteo';
-  const gw = gatewayMgr.gateways.get(targetGwId) || gatewayMgr.gateways.values().next().value;
+  const targetId = deviceId || gatewayId;
+  let dev = gatewayMgr.gateways.get(targetId);
 
-  if (!gw) {
-    return res.status(404).json({ error: 'Gateway not found' });
+  if (!dev) {
+    for (const g of gatewayMgr.gateways.values()) {
+      if (g.subDevices && (g.subDevices[targetId] || (subId && g.subDevices[subId]))) {
+        dev = g;
+        break;
+      }
+    }
+  }
+
+  if (!dev) {
+    dev = gatewayMgr.gateways.values().next().value;
+  }
+
+  if (!dev) {
+    return res.status(404).json({ error: 'Device or Gateway not found' });
   }
 
   try {
-    const targetSub = subId || 'dali_0';
-    gw.set(dps, targetSub);
-    res.json({ success: true, subId: targetSub, subDevices: gw.subDevices });
+    if (dev.category === 'wifi_device') {
+      dev.set(dps);
+      res.json({ success: true, dps: dev.dps });
+    } else {
+      const targetSub = subId || 'dali_0';
+      dev.set(dps, targetSub);
+      res.json({ success: true, subId: targetSub, subDevices: dev.subDevices });
+    }
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Query Device Status on Demand
+app.post('/api/device/query', (req, res) => {
+  const { id, subId } = req.body;
+  const dev = gatewayMgr.gateways.get(id);
+  if (!dev) return res.status(404).json({ error: 'Device not found' });
+
+  try {
+    dev.queryStatus(subId);
+    res.json({ success: true, dps: dev.dps });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -209,7 +260,7 @@ app.post('/api/rename', (req, res) => {
   }
 });
 
-// Add Gateway Endpoint (with automatic key recovery via Telnet/SSH)
+// Commission Gateway Endpoint (with automatic key recovery via Telnet/SSH)
 app.post('/api/gateway/add', async (req, res) => {
   const { ip, name, type, autoRecover, id, local_key, mac } = req.body;
   if (!ip) {
@@ -225,7 +276,8 @@ app.post('/api/gateway/add', async (req, res) => {
       port: 6668,
       local_key: local_key || 'K}>t}vi=XskqREC@',
       version: '3.3',
-      type: type || 'dali_gateway'
+      type: type || 'dali_gateway',
+      category: 'gateway'
     };
 
     if (autoRecover !== false) {
@@ -252,6 +304,43 @@ app.post('/api/gateway/add', async (req, res) => {
 app.post('/api/gateway/delete', (req, res) => {
   const { id } = req.body;
   if (!id) return res.status(400).json({ error: 'Missing gateway id' });
+
+  const ok = gatewayMgr.removeGateway(id);
+  mqttBridge.unregisterGateway(id);
+  res.json({ success: ok });
+});
+
+// Commission Standalone Tuya Wi-Fi Device Endpoint
+app.post('/api/wifi/add', (req, res) => {
+  const { ip, name, id, local_key, mac, version, type } = req.body;
+  if (!ip) {
+    return res.status(400).json({ error: 'Missing device IP address' });
+  }
+
+  try {
+    const devConf = {
+      id: id || `tuya_wifi_${ip.replace(/\./g, '_')}`,
+      name: name || `WiFi Device ${ip}`,
+      ip: ip,
+      mac: mac || '00:00:00:00:00:00',
+      port: 6668,
+      local_key: local_key || '0000000000000000',
+      version: version || '3.3',
+      type: type || 'switch',
+      category: 'wifi_device'
+    };
+
+    const device = gatewayMgr.addWifiDevice(devConf, true);
+    res.json({ success: true, device: gatewayMgr.getWifiDeviceInfo(device) });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Delete Standalone Tuya Wi-Fi Device Endpoint
+app.post('/api/wifi/delete', (req, res) => {
+  const { id } = req.body;
+  if (!id) return res.status(400).json({ error: 'Missing device id' });
 
   const ok = gatewayMgr.removeGateway(id);
   mqttBridge.unregisterGateway(id);

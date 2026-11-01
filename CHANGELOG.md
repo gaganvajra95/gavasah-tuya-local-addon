@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.2.0] - 2026-11-02
+### Added
+- **Universal Single-Name Architecture**: Unified Home Assistant MQTT device and entity naming (`has_entity_name: true`, `name: null`) so that both the device header and control cards display the exact same single friendly name across the UI without duplicates or discrepancies.
+- **Dedicated Standalone Wi-Fi Devices Tab**: Complete management tab for standalone Tuya Wi-Fi devices (plugs, wall switches 1-4 gang, lights, curtains) with real-time 2-way control, power toggles, CCT/brightness/RGB sliders, and custom DP inspector.
+- **Commission Wi-Fi Devices Tab**: Dedicated onboarding tab with direct IP commissioning (IP, Name, ID, Local Key, Type, Protocol Version) and automated network discovery.
+- **Filtered Network Auto-Discovery Radar**: Radar scanners in both "Add Gateway" and "Add WiFi Devices" tabs filter out already-adopted devices and display `"No New Gateways Found"` and `"No New WiFi Devices Found"` when all endpoints on the subnet are adopted.
+- **Immediate Bidirectional DP Querying**: Issues `DP_QUERY` (0x0a) immediately upon socket connection so the add-on instantly captures live hardware states (power, brightness, color) without waiting for user action.
+- **Universal Tuya Protocol Compatibility**: Extended frame decoder with safe JSON sanitization, null byte trimming, and robust error handling across Tuya v3.1, v3.3, and v3.4/v3.5 protocols.
+
 ## [1.1.1] - 2026-11-02
 ### Added
 - **Intelligent MAC Address Recovery on Gateway Disconnect**: When any gateway drops offline, the add-on automatically checks the Linux ARP table and scans the local subnet to match the hardware MAC address (`00:0c:43:e1:76:29`), locating the gateway's new dynamic DHCP IP and re-establishing communication automatically.

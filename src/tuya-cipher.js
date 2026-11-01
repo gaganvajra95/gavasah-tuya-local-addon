@@ -134,6 +134,34 @@ function encodeFrame(cmd, payloadObj, key, version = '3.3', seq = 0) {
 }
 
 /**
+ * Safe JSON parsing helper with whitespace, null byte, and padding sanitization
+ */
+function safeJsonParse(raw) {
+  if (!raw) return null;
+  const str = raw.toString('utf8').replace(/[\x00-\x1f\x7f-\x9f]/g, (c) => (c === '\r' || c === '\n' || c === '\t') ? c : '').trim();
+  try {
+    return JSON.parse(str);
+  } catch (e) {
+    // Attempt to extract JSON object or array
+    const start = str.indexOf('{');
+    const end = str.lastIndexOf('}');
+    if (start !== -1 && end > start) {
+      try {
+        return JSON.parse(str.slice(start, end + 1));
+      } catch (e2) {}
+    }
+    const aStart = str.indexOf('[');
+    const aEnd = str.lastIndexOf(']');
+    if (aStart !== -1 && aEnd > aStart) {
+      try {
+        return JSON.parse(str.slice(aStart, aEnd + 1));
+      } catch (e3) {}
+    }
+  }
+  return null;
+}
+
+/**
  * Decode an incoming Tuya LAN packet
  */
 function decodeFrame(buffer, key, version = '3.3') {
@@ -167,16 +195,12 @@ function decodeFrame(buffer, key, version = '3.3') {
   if (payload.length > 0 && payload.length % 16 === 0) {
     try {
       const decryptedBuf = decryptECB(payload, key);
-      decryptedJson = JSON.parse(decryptedBuf.toString('utf8').trim());
+      decryptedJson = safeJsonParse(decryptedBuf);
     } catch (err) {
-      try {
-        decryptedJson = JSON.parse(payload.toString('utf8').trim());
-      } catch (e) {}
+      decryptedJson = safeJsonParse(payload);
     }
   } else {
-    try {
-      decryptedJson = JSON.parse(payload.toString('utf8').trim());
-    } catch (e) {}
+    decryptedJson = safeJsonParse(payload);
   }
 
   return { seq, cmd, retCode, payload: decryptedJson };
