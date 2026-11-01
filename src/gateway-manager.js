@@ -252,72 +252,111 @@ class GatewayManager extends EventEmitter {
   }
 
   /**
-   * Resolve an IP by matching MAC address across ARP cache and active subnet probes
+   * Probe host directly over Telnet port 23 to read actual MAC address
    */
-  async resolveIpByMac(targetMac, hintIp = '192.168.1.210') {
-    if (!targetMac) return null;
-    const cleanTarget = targetMac.toLowerCase().replace(/[:-]/g, '');
+  probeHostMac(ip) {
+    return new Promise((resolve) => {
+      const socket = new net.Socket();
+      socket.setTimeout(900);
+      let buf = '';
 
-    // 1. Check existing ARP table first (Instant)
-    const arp1 = this.readArpTable();
-    for (const [ip, mac] of Object.entries(arp1)) {
-      if (mac.replace(/[:-]/g, '') === cleanTarget) {
-        return ip;
-      }
-    }
+      socket.connect(23, ip, () => {
+        setTimeout(() => { if (!socket.destroyed) socket.write('root\n'); }, 100);
+        setTimeout(() => { if (!socket.destroyed) socket.write('cat /sys/class/net/eth0/address || cat /sys/class/net/br-lan/address\n'); }, 250);
+        setTimeout(() => {
+          socket.destroy();
+          const match = buf.match(/([0-9a-fA-F]{2}(?::[0-9a-fA-F]{2}){5})/);
+          resolve(match ? match[1].toLowerCase() : null);
+        }, 550);
+      });
 
-    // 2. Derive subnet from hint IP (e.g. 192.168.1)
-    const subnetParts = hintIp.split('.');
-    const subnetPrefix = subnetParts.length === 4 ? `${subnetParts[0]}.${subnetParts[1]}.${subnetParts[2]}` : '192.168.1';
-
-    // 3. Fast non-blocking subnet sweep across port 6668 and 23 to trigger kernel ARP requests
-    await this.sweepSubnetPorts(subnetPrefix, [6668, 23]);
-
-    // 4. Re-check ARP table after sweep
-    const arp2 = this.readArpTable();
-    for (const [ip, mac] of Object.entries(arp2)) {
-      if (mac.replace(/[:-]/g, '') === cleanTarget) {
-        return ip;
-      }
-    }
-
-    return null;
+      socket.on('data', (d) => { buf += d.toString('latin1'); });
+      socket.on('timeout', () => { socket.destroy(); resolve(null); });
+      socket.on('error', () => { socket.destroy(); resolve(null); });
+    });
   }
 
   /**
-   * Fast concurrent TCP connect probe across /24 subnet (populates kernel ARP cache)
+   * Fast concurrent TCP sweep across /24 subnet looking for open Tuya/OpenWrt ports
    */
-  async sweepSubnetPorts(subnetPrefix, ports = [6668, 23]) {
+  async findOpenTuyaHosts(subnetPrefix, port = 6668) {
+    const found = [];
     const ips = [];
     for (let i = 1; i <= 254; i++) {
       ips.push(`${subnetPrefix}.${i}`);
     }
 
-    const batchSize = 35;
+    const batchSize = 40;
     for (let b = 0; b < ips.length; b += batchSize) {
       const batch = ips.slice(b, b + batchSize);
       await Promise.all(
         batch.map((ip) => {
           return new Promise((resolve) => {
             const socket = new net.Socket();
-            socket.setTimeout(120); // Fast 120ms probe
+            socket.setTimeout(120);
             socket.on('connect', () => {
+              found.push(ip);
               socket.destroy();
               resolve(ip);
             });
-            socket.on('timeout', () => {
-              socket.destroy();
-              resolve(null);
-            });
-            socket.on('error', () => {
-              socket.destroy();
-              resolve(null);
-            });
-            socket.connect(ports[0], ip);
+            socket.on('timeout', () => { socket.destroy(); resolve(null); });
+            socket.on('error', () => { socket.destroy(); resolve(null); });
+            socket.connect(port, ip);
           });
         })
       );
     }
+    return found;
+  }
+
+  /**
+   * Resolve an IP by matching MAC address across hint IP, candidate sweep, and ARP table
+   */
+  async resolveIpByMac(targetMac, hintIp = '192.168.1.210') {
+    if (!targetMac) return null;
+    const cleanTarget = targetMac.toLowerCase().replace(/[:-]/g, '');
+
+    // 1. Probe the hint IP directly first (Fastest, ~500ms)
+    const hintMac = await this.probeHostMac(hintIp);
+    if (hintMac && hintMac.replace(/[:-]/g, '') === cleanTarget) {
+      return hintIp;
+    }
+
+    // 2. Derive subnet from hint IP (e.g. 192.168.1)
+    const subnetParts = hintIp.split('.');
+    const subnetPrefix = subnetParts.length === 4 ? `${subnetParts[0]}.${subnetParts[1]}.${subnetParts[2]}` : '192.168.1';
+
+    // 3. Fast scan across port 6668 on candidate IPs
+    const openHosts = await this.findOpenTuyaHosts(subnetPrefix, 6668);
+
+    // 4. For each host responding on port 6668, probe its MAC
+    for (const hostIp of openHosts) {
+      const hostMac = await this.probeHostMac(hostIp);
+      if (hostMac && hostMac.replace(/[:-]/g, '') === cleanTarget) {
+        return hostIp;
+      }
+    }
+
+    // 5. Check Telnet port 23 responders
+    const telnetHosts = await this.findOpenTuyaHosts(subnetPrefix, 23);
+    for (const hostIp of telnetHosts) {
+      if (!openHosts.includes(hostIp)) {
+        const hostMac = await this.probeHostMac(hostIp);
+        if (hostMac && hostMac.replace(/[:-]/g, '') === cleanTarget) {
+          return hostIp;
+        }
+      }
+    }
+
+    // 6. Fallback: check /proc/net/arp
+    const arp = this.readArpTable();
+    for (const [ip, mac] of Object.entries(arp)) {
+      if (mac.replace(/[:-]/g, '') === cleanTarget) {
+        return ip;
+      }
+    }
+
+    return null;
   }
 
   /**
