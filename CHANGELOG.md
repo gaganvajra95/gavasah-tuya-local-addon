@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.1.0] - 2026-11-02
+### Added
+- **Multi-Gateway Architecture (`GatewayManager`)**: Full concurrent multi-gateway support for multiple Sunricher DALI Centers, Tuya Zigbee Coordinators, and Tuya Wi-Fi bridges.
+- **Dynamic DHCP Re-binding**: Zero-downtime automatic IP re-binding. When a gateway's IP changes via DHCP, the UDP discovery engine instantly updates the socket destination and reconnects the persistent TCP session within seconds.
+- **4-Tab Zigbee2MQTT Dashboard**:
+  1. **Devices**: Device cards grouped by Gateway with originating gateway badges (`via <Gateway Name>`), power toggles, brightness, CCT, and RGB controls.
+  2. **Gateways**: Complete gateway inventory with real-time status indicators, dynamic IP, MAC address (`/sys/class/net/eth0/address`), and sub-device count.
+  3. **All Devices**: Unified searchable topology grid with DP inspector and real-time packet monitor.
+  4. **Add Gateway**: Automated subnet radar scan and 1-Click Telnet/SSH Auto-Key & sub-device recovery without needing cloud accounts.
+- **Tuya Zigbee Remote & Scene Button Raw Action Interception**: Real-time unsolicited frame capture (`0x08`) for scene switches, rotary knobs, SOS buttons, and remotes. Emits instant action events (`single`, `double`, `hold`, `rotate`) to Home Assistant MQTT (`gavasah/tuya/<gwId>/<subId>/action`) and displays animated action badges in the Ingress UI.
+- **Comprehensive DALI Driver Profiles**: Extended normalization helper supporting DT6 Single-Channel Dimmer, DT8 Tunable White (CCT), DT8 RGB (3-Channel), DT8 RGBW (4-Channel), and DT8 RGBCW / RGB+CCT (5-Channel) with HSV (`hhhhssssvvvv`) conversions.
+- **Bi-Directional Friendly Name Sync**: Editable names for gateways and devices with instant Home Assistant MQTT entity republishing.
+
+---
+
 ## [1.0.2] - 2026-11-02
 ### Fixed
 - **Home Assistant Ingress Compatibility**: Fixed relative URL resolution for all REST API endpoints (`${basePath}api/control`, `${basePath}api/devices`) and dynamic WebSocket routing (`${basePath}ws`) so that the Z2M-style GUI operates seamlessly inside HA Ingress panels.

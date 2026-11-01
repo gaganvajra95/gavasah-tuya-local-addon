@@ -3,812 +3,918 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>GAVASAH Tuya Local Gateway</title>
+  <title>Gavasah Tuya LAN & DALI Manager</title>
   <style>
     :root {
-      --bg-dark: #12171e;
-      --bg-sidebar: #18202b;
-      --bg-card: #202a37;
-      --bg-input: #10151d;
-      --border: #2d3848;
-      --border-focus: #0ea5e9;
-      --primary: #0284c7;
-      --primary-hover: #0369a1;
-      --accent: #38bdf8;
-      --success: #10b981;
-      --warning: #f59e0b;
+      --bg: #0f172a;
+      --card-bg: #1e293b;
+      --card-border: #334155;
+      --primary: #3b82f6;
+      --primary-hover: #2563eb;
+      --accent: #10b981;
       --danger: #ef4444;
-      --text-bright: #f8fafc;
-      --text-body: #cbd5e1;
-      --text-muted: #64748b;
-      --badge-dt8: #8b5cf6;
-      --badge-dt6: #06b6d4;
+      --warning: #f59e0b;
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+      --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
     }
-
-    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
-    body { background: var(--bg-dark); color: var(--text-body); font-size: 13px; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
-
-    /* Top Navigation Bar */
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
     header {
-      background: var(--bg-sidebar);
-      border-bottom: 1px solid var(--border);
-      padding: 0 20px;
-      height: 56px;
+      background: #090d16;
+      border-bottom: 1px solid var(--card-border);
+      padding: 14px 24px;
       display: flex;
       align-items: center;
       justify-content: space-between;
-      flex-shrink: 0;
+      position: sticky;
+      top: 0;
+      z-index: 50;
     }
-
     .brand {
       display: flex;
       align-items: center;
       gap: 12px;
-    }
-
-    .brand-logo {
-      width: 32px;
-      height: 32px;
-      background: linear-gradient(135deg, #0284c7, #38bdf8);
-      border-radius: 8px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: white;
-      font-weight: 800;
-      font-size: 16px;
-      box-shadow: 0 2px 8px rgba(2, 132, 199, 0.4);
-    }
-
-    .brand-title {
-      font-size: 15px;
       font-weight: 700;
-      color: var(--text-bright);
-      letter-spacing: -0.2px;
+      font-size: 1.15rem;
+      letter-spacing: -0.02em;
     }
-
-    .brand-ver {
-      font-size: 11px;
-      color: var(--text-muted);
-      font-weight: 400;
-      background: var(--bg-card);
-      padding: 2px 6px;
-      border-radius: 4px;
-      border: 1px solid var(--border);
+    .brand-badge {
+      background: linear-gradient(135deg, #2563eb, #10b981);
+      color: #fff;
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      font-weight: 600;
     }
-
-    .status-cluster {
+    .nav-tabs {
       display: flex;
-      align-items: center;
-      gap: 16px;
+      gap: 8px;
     }
-
-    .status-pill {
+    .tab-btn {
+      background: transparent;
+      border: 1px solid transparent;
+      color: var(--text-muted);
+      padding: 8px 16px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 0.9rem;
+      transition: all 0.15s ease;
       display: flex;
       align-items: center;
       gap: 8px;
-      background: var(--bg-card);
-      border: 1px solid var(--border);
-      padding: 5px 12px;
-      border-radius: 20px;
-      font-size: 12px;
-      font-weight: 500;
-      color: var(--text-bright);
     }
-
-    .dot {
+    .tab-btn:hover {
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--text);
+    }
+    .tab-btn.active {
+      background: var(--card-bg);
+      color: #fff;
+      border-color: var(--card-border);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    }
+    .status-bar {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+    .indicator {
       width: 8px;
       height: 8px;
       border-radius: 50%;
+      background: var(--accent);
+      display: inline-block;
+      box-shadow: 0 0 8px var(--accent);
     }
-    .dot.green { background: var(--success); box-shadow: 0 0 8px var(--success); }
-    .dot.red { background: var(--danger); box-shadow: 0 0 8px var(--danger); }
-
-    /* Navigation Tabs */
-    nav {
-      background: var(--bg-sidebar);
-      border-bottom: 1px solid var(--border);
-      padding: 0 20px;
-      display: flex;
-      gap: 6px;
-      flex-shrink: 0;
+    .indicator.offline {
+      background: var(--danger);
+      box-shadow: 0 0 8px var(--danger);
     }
-
-    .nav-tab {
-      padding: 10px 16px;
-      color: var(--text-muted);
-      cursor: pointer;
-      font-weight: 600;
-      border-bottom: 2px solid transparent;
-      transition: all 0.2s;
-    }
-    .nav-tab:hover { color: var(--text-bright); }
-    .nav-tab.active {
-      color: var(--accent);
-      border-bottom: 2px solid var(--accent);
-    }
-
-    /* Main Container */
     main {
       flex: 1;
-      overflow-y: auto;
-      padding: 20px;
+      padding: 24px;
+      max-width: 1440px;
+      margin: 0 auto;
+      width: 100%;
     }
-
-    .tab-content { display: none; }
-    .tab-content.active { display: block; }
-
-    /* Search & Action Bar */
-    .toolbar {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
+    .tab-content {
+      display: none;
+    }
+    .tab-content.active {
+      display: block;
+    }
+    .section-title {
+      font-size: 1.25rem;
+      font-weight: 700;
       margin-bottom: 16px;
-      gap: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
     }
-
-    .search-input {
-      background: var(--bg-input);
-      border: 1px solid var(--border);
-      color: var(--text-bright);
+    .btn {
+      background: var(--primary);
+      color: #fff;
+      border: none;
       padding: 8px 14px;
       border-radius: 6px;
-      font-size: 13px;
-      width: 320px;
-      outline: none;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 0.85rem;
+      transition: background 0.15s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
     }
-    .search-input:focus { border-color: var(--primary); }
+    .btn:hover { background: var(--primary-hover); }
+    .btn-secondary {
+      background: #334155;
+      color: var(--text);
+    }
+    .btn-secondary:hover { background: #475569; }
+    .btn-danger {
+      background: var(--danger);
+    }
+    .btn-danger:hover { background: #dc2626; }
+    .btn-sm { padding: 4px 8px; font-size: 0.75rem; }
 
-    /* Z2M-style Table */
-    .table-container {
-      background: var(--bg-sidebar);
-      border: 1px solid var(--border);
-      border-radius: 8px;
+    /* Gateway Group Container */
+    .gateway-group {
+      background: rgba(30, 41, 59, 0.5);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      margin-bottom: 24px;
       overflow: hidden;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
     }
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      text-align: left;
+    .gateway-group-header {
+      background: var(--card-bg);
+      padding: 14px 20px;
+      border-bottom: 1px solid var(--card-border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
     }
-
-    th {
-      background: var(--bg-card);
-      padding: 12px 16px;
-      font-size: 12px;
-      font-weight: 600;
-      color: var(--text-muted);
-      border-bottom: 1px solid var(--border);
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
+    .gw-title-area {
+      display: flex;
+      align-items: center;
+      gap: 12px;
     }
-
-    td {
-      padding: 14px 16px;
-      border-bottom: 1px solid var(--border);
-      vertical-align: middle;
-    }
-
-    tr:last-child td { border-bottom: none; }
-    tr:hover td { background: rgba(255, 255, 255, 0.02); }
-
-    .device-title { font-weight: 600; color: var(--text-bright); font-size: 13px; }
-    .device-sub { font-size: 11px; color: var(--text-muted); margin-top: 3px; }
-
-    .badge {
-      display: inline-block;
+    .gw-pill {
+      background: rgba(59, 130, 246, 0.15);
+      color: #60a5fa;
+      border: 1px solid rgba(59, 130, 246, 0.3);
       padding: 3px 8px;
-      border-radius: 4px;
-      font-size: 11px;
-      font-weight: 600;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      font-family: var(--font-mono);
     }
-    .badge-dt8 { background: rgba(139, 92, 246, 0.2); color: #c4b5fd; border: 1px solid rgba(139, 92, 246, 0.4); }
-    .badge-dt6 { background: rgba(6, 182, 212, 0.2); color: #67e8f9; border: 1px solid rgba(6, 182, 212, 0.4); }
-    .badge-gw { background: rgba(16, 185, 129, 0.2); color: #6ee7b7; border: 1px solid rgba(16, 185, 129, 0.4); }
-
-    /* Interactive Controls */
-    .toggle-switch {
+    .device-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 16px;
+      padding: 20px;
+    }
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 10px;
+      padding: 18px;
+      position: relative;
+      transition: transform 0.15s ease, border-color 0.15s ease;
+    }
+    .card:hover {
+      border-color: #475569;
+      transform: translateY(-2px);
+    }
+    .card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 14px;
+    }
+    .device-name {
+      font-weight: 700;
+      font-size: 1rem;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .edit-icon {
+      cursor: pointer;
+      color: var(--text-muted);
+      font-size: 0.85rem;
+    }
+    .edit-icon:hover { color: var(--primary); }
+    .device-meta {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      margin-bottom: 14px;
+      display: flex;
+      justify-content: space-between;
+    }
+    .switch-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 14px;
+    }
+    .toggle {
       position: relative;
       display: inline-block;
       width: 44px;
       height: 24px;
     }
-    .toggle-switch input { opacity: 0; width: 0; height: 0; }
+    .toggle input { opacity: 0; width: 0; height: 0; }
     .slider-toggle {
-      position: absolute; cursor: pointer;
+      position: absolute;
+      cursor: pointer;
       top: 0; left: 0; right: 0; bottom: 0;
-      background-color: var(--border);
-      transition: .25s;
+      background-color: #475569;
+      transition: .2s;
       border-radius: 24px;
     }
     .slider-toggle:before {
-      position: absolute; content: "";
+      position: absolute;
+      content: "";
       height: 18px; width: 18px;
       left: 3px; bottom: 3px;
       background-color: white;
-      transition: .25s;
+      transition: .2s;
       border-radius: 50%;
     }
-    input:checked + .slider-toggle { background-color: var(--primary); }
+    input:checked + .slider-toggle { background-color: var(--accent); }
     input:checked + .slider-toggle:before { transform: translateX(20px); }
 
-    .range-control {
+    .control-row {
+      margin-top: 10px;
+    }
+    .control-label {
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--text-muted);
       display: flex;
-      align-items: center;
-      gap: 10px;
-      width: 190px;
+      justify-content: space-between;
+      margin-bottom: 4px;
     }
-    .range-control input[type="range"] {
-      flex: 1;
+    .range-slider {
+      width: 100%;
       height: 6px;
-      -webkit-appearance: none;
-      background: var(--bg-input);
       border-radius: 3px;
+      background: #334155;
       outline: none;
-      cursor: pointer;
+      -webkit-appearance: none;
     }
-    .range-control input[type="range"]::-webkit-slider-thumb {
+    .range-slider::-webkit-slider-thumb {
       -webkit-appearance: none;
       width: 16px;
       height: 16px;
       border-radius: 50%;
-      background: var(--accent);
+      background: var(--primary);
       cursor: pointer;
     }
-    .val-label {
-      font-size: 11px;
-      font-weight: 600;
-      color: var(--text-muted);
-      width: 40px;
-      text-align: right;
-    }
-
-    .btn {
-      background: var(--bg-card);
-      border: 1px solid var(--border);
-      color: var(--text-bright);
-      padding: 6px 12px;
-      border-radius: 6px;
-      cursor: pointer;
-      font-size: 12px;
-      font-weight: 500;
-      transition: all 0.2s;
-    }
-    .btn:hover { background: var(--border); }
-    .btn-primary { background: var(--primary); border-color: var(--primary); }
-    .btn-primary:hover { background: var(--primary-hover); }
-
-    /* Live Logs Container */
-    .log-container {
-      background: var(--bg-input);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      height: calc(100vh - 160px);
+    .cct-slider::-webkit-slider-thumb { background: #f59e0b; }
+    .color-picker-row {
+      margin-top: 12px;
       display: flex;
-      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+    }
+    .color-input {
+      border: none;
+      width: 32px;
+      height: 32px;
+      border-radius: 6px;
+      background: transparent;
+      cursor: pointer;
+    }
+
+    /* Gateway Inventory Table */
+    .table-container {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 10px;
       overflow: hidden;
     }
-    .log-header {
-      background: var(--bg-sidebar);
-      padding: 10px 16px;
-      border-bottom: 1px solid var(--border);
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+      font-size: 0.9rem;
     }
-    .log-filters {
-      display: flex;
-      gap: 8px;
-    }
-    .filter-btn {
-      background: var(--bg-card);
-      border: 1px solid var(--border);
+    th {
+      background: #0f172a;
+      padding: 12px 18px;
+      font-weight: 600;
       color: var(--text-muted);
-      padding: 4px 10px;
-      border-radius: 4px;
-      font-size: 11px;
-      cursor: pointer;
+      border-bottom: 1px solid var(--card-border);
     }
-    .filter-btn.active { color: var(--accent); border-color: var(--accent); font-weight: 600; }
+    td {
+      padding: 14px 18px;
+      border-bottom: 1px solid #1e293b;
+    }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: rgba(255, 255, 255, 0.02); }
 
-    .log-body {
-      flex: 1;
-      padding: 14px;
-      overflow-y: auto;
-      font-family: "Consolas", "Courier New", monospace;
-      font-size: 12px;
-      line-height: 1.6;
+    /* Forms */
+    .form-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 24px;
+      max-width: 600px;
+      margin-bottom: 24px;
     }
-    .log-line { display: flex; gap: 10px; margin-bottom: 4px; }
-    .log-time { color: var(--text-muted); flex-shrink: 0; }
-    .log-tag { font-weight: 700; flex-shrink: 0; width: 65px; }
-    .log-tag.mqtt { color: #38bdf8; }
-    .log-tag.tuya { color: #a855f7; }
-    .log-tag.info { color: #10b981; }
-    .log-tag.error { color: #ef4444; }
-    .log-msg { color: var(--text-body); word-break: break-all; }
+    .form-group {
+      margin-bottom: 16px;
+    }
+    .form-group label {
+      display: block;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+    }
+    .form-input {
+      width: 100%;
+      background: #0f172a;
+      border: 1px solid var(--card-border);
+      color: #fff;
+      padding: 10px 14px;
+      border-radius: 6px;
+      font-size: 0.9rem;
+      outline: none;
+    }
+    .form-input:focus { border-color: var(--primary); }
+    .form-hint {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
 
-    /* Diagnostic Card Grid */
-    .dp-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-      gap: 16px;
-    }
-    .dp-card {
-      background: var(--bg-sidebar);
-      border: 1px solid var(--border);
+    /* Packet Console */
+    .console-box {
+      background: #090d16;
+      border: 1px solid var(--card-border);
       border-radius: 8px;
-      padding: 16px;
+      padding: 12px;
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      height: 220px;
+      overflow-y: auto;
+      margin-top: 16px;
     }
-    .dp-card h4 {
-      color: var(--text-bright);
-      margin-bottom: 12px;
-      font-size: 13px;
+    .log-line { margin-bottom: 4px; }
+    .log-time { color: #64748b; }
+    .log-tuya { color: #38bdf8; }
+    .log-mqtt { color: #a855f7; }
+    .log-error { color: #f87171; }
+    .log-action { color: #10b981; font-weight: bold; }
+
+    .action-badge {
+      background: rgba(16, 185, 129, 0.2);
+      color: #34d399;
+      border: 1px solid rgba(16, 185, 129, 0.4);
+      padding: 6px 10px;
+      border-radius: 6px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      margin-top: 10px;
+      animation: pulseAction 1.5s ease;
       display: flex;
       align-items: center;
-      justify-content: space-between;
+      gap: 6px;
     }
-    .dp-item {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 8px 0;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-    }
-    .dp-item:last-child { border-bottom: none; }
-    .dp-item code {
-      background: var(--bg-card);
-      padding: 2px 6px;
-      border-radius: 4px;
-      color: var(--accent);
-      font-size: 11px;
+    @keyframes pulseAction {
+      0% { transform: scale(0.95); opacity: 0.6; }
+      50% { transform: scale(1.03); opacity: 1; }
+      100% { transform: scale(1); opacity: 1; }
     }
   </style>
 </head>
 <body>
-
-  <!-- Top App Header -->
   <header>
     <div class="brand">
-      <div class="brand-logo">G</div>
-      <div>
-        <span class="brand-title">GAVASAH Tuya Local Gateway</span>
-        <span class="brand-ver">v1.0.1 (Zero-Cloud LAN)</span>
-      </div>
+      <span class="indicator" id="main-status-ind"></span>
+      <span>GAVASAH Tuya LAN</span>
+      <span class="brand-badge">Multi-Gateway Core</span>
     </div>
-    <div class="status-cluster">
-      <div class="status-pill">
-        <span class="dot green"></span>
-        <span>TCP 6668: Connected (<20ms)</span>
-      </div>
-      <div class="status-pill">
-        <span class="dot green"></span>
-        <span>MQTT: Online</span>
-      </div>
+    <div class="nav-tabs">
+      <button class="tab-btn active" onclick="switchTab('devices')">Devices</button>
+      <button class="tab-btn" onclick="switchTab('gateways')">Gateways</button>
+      <button class="tab-btn" onclick="switchTab('all-devices')">All Devices</button>
+      <button class="tab-btn" onclick="switchTab('add-gateway')">Add Gateway</button>
+    </div>
+    <div class="status-bar">
+      <span id="gateway-count">1 Gateway Active</span>
+      <span id="mqtt-status">MQTT Online</span>
     </div>
   </header>
 
-  <!-- Navigation Tabs -->
-  <nav>
-    <div class="nav-tab active" onclick="switchTab('devices')">Devices (${3} DALI Lamps)</div>
-    <div class="nav-tab" onclick="switchTab('dps')">Data Points & Diagnostics</div>
-    <div class="nav-tab" onclick="switchTab('logs')">Live Console & Packets</div>
-    <div class="nav-tab" onclick="switchTab('settings')">Settings & Cryptography</div>
-  </nav>
-
-  <!-- Main Viewports -->
   <main>
-
-    <!-- TAB 1: Z2M-STYLE DEVICE TABLE -->
-    <div id="tab-devices" class="tab-content active">
-      <div class="toolbar">
-        <input type="text" id="search-box" class="search-input" placeholder="Search by name, address, or CID..." onkeyup="filterDevices()">
-        <div>
-          <button class="btn" onclick="allOn()">All Lamps ON</button>
-          <button class="btn" onclick="allOff()">All Lamps OFF</button>
-          <button class="btn btn-primary" onclick="refreshDevices()">Sync State</button>
+    <!-- TAB 1: DEVICES (Grouped by Gateway) -->
+    <div class="tab-content active" id="tab-devices">
+      <div class="section-title">
+        <span>Connected Devices</span>
+        <div style="display:flex; gap:8px;">
+          <button class="btn btn-secondary btn-sm" onclick="refreshData()">Refresh</button>
+          <button class="btn btn-sm" onclick="allOn()">All On</button>
+          <button class="btn btn-secondary btn-sm" onclick="allOff()">All Off</button>
         </div>
       </div>
+      <div id="grouped-devices-container">
+        <!-- Rendered dynamically -->
+      </div>
+    </div>
 
+    <!-- TAB 2: GATEWAYS -->
+    <div class="tab-content" id="tab-gateways">
+      <div class="section-title">
+        <span>Registered Gateways</span>
+        <button class="btn btn-sm" onclick="switchTab('add-gateway')">+ Add Gateway</button>
+      </div>
       <div class="table-container">
         <table>
           <thead>
             <tr>
-              <th>Friendly Name / Model</th>
-              <th>Address / CID</th>
+              <th>Name</th>
+              <th>Gateway ID</th>
+              <th>IP Address (DHCP Dynamic)</th>
+              <th>MAC Address</th>
               <th>Type</th>
-              <th>Power State (DP 20)</th>
-              <th>Brightness (DP 22)</th>
-              <th>Color Temp (DP 23)</th>
+              <th>Status</th>
+              <th>Devices</th>
               <th>Actions</th>
             </tr>
           </thead>
-          <tbody id="devices-tbody">
-
-            <!-- DALI Lamp 0 -->
-            <tr data-name="DALI Lamp 0" id="row-dali_0">
-              <td>
-                <div class="device-title">DALI Lamp 0 (Tunable White DT8)</div>
-                <div class="device-sub">Sunricher DALI Center • CID: 010008020000</div>
-              </td>
-              <td><code>Addr 0 (010008020000)</code></td>
-              <td><span class="badge badge-dt8">DT8 Tunable White</span></td>
-              <td>
-                <label class="toggle-switch">
-                  <input type="checkbox" id="power-dali_0" onchange="toggleDevice('dali_0', this.checked)">
-                  <span class="slider-toggle"></span>
-                </label>
-              </td>
-              <td>
-                <div class="range-control">
-                  <input type="range" min="10" max="1000" value="1000" id="bri-dali_0" oninput="updateValLabel('val-bri-dali_0', this.value, '%')" onchange="setBrightness('dali_0', this.value)">
-                  <span class="val-label" id="val-bri-dali_0">100%</span>
-                </div>
-              </td>
-              <td>
-                <div class="range-control">
-                  <input type="range" min="0" max="1000" value="500" id="cct-dali_0" oninput="updateKelvinLabel('val-cct-dali_0', this.value)" onchange="setColorTemp('dali_0', this.value)">
-                  <span class="val-label" id="val-cct-dali_0">4600K</span>
-                </div>
-              </td>
-              <td>
-                <button class="btn" onclick="testPing('dali_0')">Test</button>
-              </td>
-            </tr>
-
-            <!-- DALI Lamp 1 -->
-            <tr data-name="DALI Lamp 1" id="row-dali_1">
-              <td>
-                <div class="device-title">DALI Lamp 1 (Tunable White DT8)</div>
-                <div class="device-sub">Sunricher DALI Center • CID: 010008020001</div>
-              </td>
-              <td><code>Addr 1 (010008020001)</code></td>
-              <td><span class="badge badge-dt8">DT8 Tunable White</span></td>
-              <td>
-                <label class="toggle-switch">
-                  <input type="checkbox" id="power-dali_1" onchange="toggleDevice('dali_1', this.checked)">
-                  <span class="slider-toggle"></span>
-                </label>
-              </td>
-              <td>
-                <div class="range-control">
-                  <input type="range" min="10" max="1000" value="1000" id="bri-dali_1" oninput="updateValLabel('val-bri-dali_1', this.value, '%')" onchange="setBrightness('dali_1', this.value)">
-                  <span class="val-label" id="val-bri-dali_1">100%</span>
-                </div>
-              </td>
-              <td>
-                <div class="range-control">
-                  <input type="range" min="0" max="1000" value="500" id="cct-dali_1" oninput="updateKelvinLabel('val-cct-dali_1', this.value)" onchange="setColorTemp('dali_1', this.value)">
-                  <span class="val-label" id="val-cct-dali_1">4600K</span>
-                </div>
-              </td>
-              <td>
-                <button class="btn" onclick="testPing('dali_1')">Test</button>
-              </td>
-            </tr>
-
-            <!-- DALI Lamp 2 -->
-            <tr data-name="DALI Lamp 2" id="row-dali_2">
-              <td>
-                <div class="device-title">DALI Lamp 2 (Dimmer DT6)</div>
-                <div class="device-sub">Sunricher DALI Center • CID: 010006000002</div>
-              </td>
-              <td><code>Addr 2 (010006000002)</code></td>
-              <td><span class="badge badge-dt6">DT6 Dimmer</span></td>
-              <td>
-                <label class="toggle-switch">
-                  <input type="checkbox" id="power-dali_2" onchange="toggleDevice('dali_2', this.checked)">
-                  <span class="slider-toggle"></span>
-                </label>
-              </td>
-              <td>
-                <div class="range-control">
-                  <input type="range" min="10" max="1000" value="1000" id="bri-dali_2" oninput="updateValLabel('val-bri-dali_2', this.value, '%')" onchange="setBrightness('dali_2', this.value)">
-                  <span class="val-label" id="val-bri-dali_2">100%</span>
-                </div>
-              </td>
-              <td>
-                <span style="color:var(--text-muted); font-size:11px;">Single Channel (Fixed)</span>
-              </td>
-              <td>
-                <button class="btn" onclick="testPing('dali_2')">Test</button>
-              </td>
-            </tr>
-
-            <!-- Sunricher Gateway Hub -->
-            <tr data-name="Sunricher DALI Gateway">
-              <td>
-                <div class="device-title">Sunricher DALI Center (IP Gateway)</div>
-                <div class="device-sub">MediaTek MT7688 OpenWrt • IP: 192.168.1.210</div>
-              </td>
-              <td><code>devId: d7b3f345b23032557azteo</code></td>
-              <td><span class="badge badge-gw">DALI Master Hub</span></td>
-              <td colspan="3"><span style="color:var(--success); font-weight:600;">● Persistent TCP 6668 Connected</span></td>
-              <td><span style="color:var(--accent); font-size:11px;">100% LAN Mode</span></td>
-            </tr>
+          <tbody id="gateways-table-body">
+            <!-- Rendered dynamically -->
           </tbody>
         </table>
       </div>
     </div>
 
-    <!-- TAB 2: TUYA DPS & DIAGNOSTICS -->
-    <div id="tab-dps" class="tab-content">
-      <div class="dp-grid">
-        <div class="dp-card">
-          <h4>Lamp 0 Live Data Points (DT8)</h4>
-          <div class="dp-item"><span>DP 20 (Power Switch)</span><code id="dps-dali_0-20">false</code></div>
-          <div class="dp-item"><span>DP 22 (Brightness 10-1000)</span><code id="dps-dali_0-22">1000</code></div>
-          <div class="dp-item"><span>DP 23 (Kelvin 0-1000)</span><code id="dps-dali_0-23">500</code></div>
-        </div>
+    <!-- TAB 3: ALL DEVICES (Flat Grid & Diagnostics) -->
+    <div class="tab-content" id="tab-all-devices">
+      <div class="section-title">
+        <span>Unified Device Topology & Diagnostics</span>
+        <input type="text" id="device-search" placeholder="Search by name, CID, or gateway..." class="form-input" style="max-width: 300px; padding: 6px 12px;" oninput="filterAllDevices()">
+      </div>
+      <div class="device-grid" id="all-devices-grid">
+        <!-- Rendered dynamically -->
+      </div>
 
-        <div class="dp-card">
-          <h4>Lamp 1 Live Data Points (DT8)</h4>
-          <div class="dp-item"><span>DP 20 (Power Switch)</span><code id="dps-dali_1-20">false</code></div>
-          <div class="dp-item"><span>DP 22 (Brightness 10-1000)</span><code id="dps-dali_1-22">1000</code></div>
-          <div class="dp-item"><span>DP 23 (Kelvin 0-1000)</span><code id="dps-dali_1-23">500</code></div>
-        </div>
+      <div style="margin-top: 24px;">
+        <div class="section-title">Real-Time Packet Monitor</div>
+        <div class="console-box" id="packet-console"></div>
+      </div>
+    </div>
 
-        <div class="dp-card">
-          <h4>Lamp 2 Live Data Points (DT6)</h4>
-          <div class="dp-item"><span>DP 20 (Power Switch)</span><code id="dps-dali_2-20">false</code></div>
-          <div class="dp-item"><span>DP 22 (Brightness 10-1000)</span><code id="dps-dali_2-22">1000</code></div>
-        </div>
+    <!-- TAB 4: ADD GATEWAY -->
+    <div class="tab-content" id="tab-add-gateway">
+      <div class="section-title">
+        <span>Commission New Tuya Gateway</span>
+      </div>
 
-        <div class="dp-card">
-          <h4>Direct Raw Command Transmit</h4>
-          <div style="margin-bottom:10px;">
-            <label style="display:block; margin-bottom:4px; color:var(--text-muted);">Target Lamp</label>
-            <select id="inject-sub" class="search-input" style="width:100%;">
-              <option value="dali_0">Lamp 0 (010008020000)</option>
-              <option value="dali_1">Lamp 1 (010008020001)</option>
-              <option value="dali_2">Lamp 2 (010006000002)</option>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
+        <!-- Manual IP Addition & Auto Recovery -->
+        <div class="form-card">
+          <h3 style="margin-bottom: 14px;">Direct IP Commissioning</h3>
+          <p class="form-hint" style="margin-bottom: 16px;">Enter the gateway IP. The system will automatically connect, extract the MAC address, AES local key, and map all sub-devices without needing cloud credentials.</p>
+          
+          <div class="form-group">
+            <label>Gateway IP Address</label>
+            <input type="text" id="add-gw-ip" class="form-input" placeholder="e.g. 192.168.1.210">
+          </div>
+          <div class="form-group">
+            <label>Custom Gateway Name (Optional)</label>
+            <input type="text" id="add-gw-name" class="form-input" placeholder="e.g. 1st Floor DALI Master">
+          </div>
+          <div class="form-group">
+            <label>Hardware Category</label>
+            <select id="add-gw-type" class="form-input">
+              <option value="dali_gateway">Sunricher DALI Center (Auto-Key Recovery)</option>
+              <option value="zigbee_gateway">Tuya Zigbee Gateway</option>
+              <option value="generic">Generic Tuya LAN Gateway</option>
             </select>
           </div>
-          <div style="margin-bottom:10px;">
-            <label style="display:block; margin-bottom:4px; color:var(--text-muted);">DP ID (20, 22, or 23)</label>
-            <input type="number" id="inject-dpid" class="search-input" style="width:100%;" value="20">
+          <div class="form-group">
+            <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+              <input type="checkbox" id="add-gw-autorecover" checked>
+              <span>Auto-Recover Keys & Sub-Devices via Telnet/SSH</span>
+            </label>
           </div>
-          <div style="margin-bottom:10px;">
-            <label style="display:block; margin-bottom:4px; color:var(--text-muted);">Value (true, false, or number)</label>
-            <input type="text" id="inject-val" class="search-input" style="width:100%;" value="true">
+          <button class="btn" style="width: 100%; padding: 10px;" onclick="submitAddGateway()">Commission Gateway</button>
+        </div>
+
+        <!-- Network Auto-Discovery Radar -->
+        <div class="form-card">
+          <h3 style="margin-bottom: 14px;">Network Auto-Discovery Radar</h3>
+          <p class="form-hint" style="margin-bottom: 16px;">Listens for Tuya UDP broadcast announcements on ports 6666/6667 and scans the local subnet.</p>
+          <button class="btn btn-secondary" onclick="scanNetwork()">Scan Subnet Now</button>
+          
+          <div style="margin-top: 16px;" id="discovered-gateways-list">
+            <p style="color: var(--text-muted); font-size: 0.85rem;">No unadopted gateways detected yet. Ensure gateway is powered on.</p>
           </div>
-          <button class="btn btn-primary" onclick="injectRawDp()">Transmit Sub-20ms TCP Frame</button>
         </div>
       </div>
     </div>
-
-    <!-- TAB 3: LIVE CONSOLE & LOGS (Z2M Style) -->
-    <div id="tab-logs" class="tab-content">
-      <div class="log-container">
-        <div class="log-header">
-          <div class="log-filters">
-            <button class="filter-btn active" onclick="setLogFilter('all')">All</button>
-            <button class="filter-btn" onclick="setLogFilter('mqtt')">MQTT</button>
-            <button class="filter-btn" onclick="setLogFilter('tuya')">Tuya TCP</button>
-            <button class="filter-btn" onclick="setLogFilter('error')">Errors</button>
-          </div>
-          <div>
-            <button class="btn" style="font-size:11px; padding:3px 8px;" onclick="clearLogs()">Clear</button>
-          </div>
-        </div>
-        <div class="log-body" id="log-body">
-          <!-- Log lines populated dynamically -->
-        </div>
-      </div>
-    </div>
-
-    <!-- TAB 4: SETTINGS & KEYS -->
-    <div id="tab-settings" class="tab-content">
-      <div class="dp-card" style="max-width:540px;">
-        <h4>Gateway & Cryptographic Key Settings</h4>
-        <div style="margin-bottom:12px;">
-          <label style="display:block; margin-bottom:4px; color:var(--text-muted);">Gateway LAN IP</label>
-          <input type="text" id="cfg-ip" class="search-input" style="width:100%;" value="192.168.1.210" readonly>
-        </div>
-        <div style="margin-bottom:12px;">
-          <label style="display:block; margin-bottom:4px; color:var(--text-muted);">Device ID / gwId</label>
-          <input type="text" id="cfg-devid" class="search-input" style="width:100%;" value="d7b3f345b23032557azteo" readonly>
-        </div>
-        <div style="margin-bottom:12px;">
-          <label style="display:block; margin-bottom:4px; color:var(--text-muted);">Tuya AES local_key (16 Characters)</label>
-          <input type="text" id="cfg-key" class="search-input" style="width:100%; font-family:monospace;" value="K}>t}vi=XskqREC@" readonly>
-        </div>
-        <div style="color:var(--success); font-size:12px; margin-top:8px;">
-          ✓ Hardware-verified key. 100% 2-way real-time communication active.
-        </div>
-      </div>
-    </div>
-
   </main>
 
   <script>
-    function switchTab(tabId) {
-      document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
-      document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-      event.target.classList.add('active');
-      document.getElementById(`tab-${tabId}`).classList.add('active');
-    }
-
-    function updateValLabel(elemId, val, unit) {
-      document.getElementById(elemId).innerText = Math.round(val / 10) + unit;
-    }
-    function updateKelvinLabel(elemId, val) {
-      const kelvin = Math.round(2700 + (val / 1000) * 3800);
-      document.getElementById(elemId).innerText = kelvin + 'K';
-    }
-
-    function filterDevices() {
-      const q = document.getElementById('search-box').value.toLowerCase();
-      document.querySelectorAll('#devices-tbody tr').forEach(row => {
-        const name = row.getAttribute('data-name') || '';
-        row.style.display = name.toLowerCase().includes(q) ? '' : 'none';
-      });
-    }
-
-    // Logging & WebSocket
-    const logBody = document.getElementById('log-body');
-    let currentFilter = 'all';
-
-    function addLog(tag, msg) {
-      const time = new Date().toISOString().split('T')[1].slice(0, 8);
-      const row = document.createElement('div');
-      row.className = `log-line filter-${tag.toLowerCase()}`;
-      row.innerHTML = `
-        <span class="log-time">[${time}]</span>
-        <span class="log-tag ${tag.toLowerCase()}">[${tag}]</span>
-        <span class="log-msg">${escapeHtml(msg)}</span>
-      `;
-      logBody.appendChild(row);
-      logBody.scrollTop = logBody.scrollHeight;
-    }
-
-    function clearLogs() { logBody.innerHTML = ''; }
-    function setLogFilter(f) {
-      currentFilter = f;
-      document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-      event.target.classList.add('active');
-      document.querySelectorAll('.log-line').forEach(line => {
-        if (f === 'all' || line.classList.contains(`filter-${f}`)) {
-          line.style.display = '';
-        } else {
-          line.style.display = 'none';
-        }
-      });
-    }
-
-    function escapeHtml(str) {
-      return (str || '').toString().replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-    }
-
-    // Base URL resolution for Home Assistant Ingress compatibility
     const basePath = window.location.pathname.endsWith('/') 
       ? window.location.pathname 
       : window.location.pathname + '/';
 
-    // WebSocket Connection
+    let gatewaysData = [];
+    let allDevicesData = [];
+
+    // Tab Navigation
+    function switchTab(tabId) {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+      const activeBtn = Array.from(document.querySelectorAll('.tab-btn')).find(b => b.getAttribute('onclick').includes(tabId));
+      if (activeBtn) activeBtn.classList.add('active');
+      const targetContent = document.getElementById(`tab-${tabId}`);
+      if (targetContent) targetContent.classList.add('active');
+    }
+
+    // WebSocket Stream
     const wsProto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const ws = new WebSocket(`${wsProto}//${window.location.host}${basePath}ws`);
-    ws.onopen = () => addLog('INFO', 'Connected to Gavasah Tuya LAN Gateway WebSocket Stream.');
+    
+    ws.onopen = () => addLog('INFO', 'Connected to Gavasah Multi-Gateway WebSocket Stream.');
     ws.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
         if (data.type === 'packet') {
           addLog('TUYA', `${data.direction === 'in' ? 'RX' : 'TX'} CMD: 0x${data.cmd.toString(16)} Data: ${JSON.stringify(data.data)}`);
+        } else if (data.type === 'remote_action') {
+          addLog('ACTION', `⚡ REMOTE EVENT [${data.subId}]: Button ${data.button} -> "${data.action}" (Raw DPs: ${JSON.stringify(data.dps)})`);
+          showActionBadge(data.gatewayId, data.subId, data.button, data.action);
         } else if (data.type === 'state_update') {
-          addLog('TUYA', `2-Way Update [${data.subId}]: ${JSON.stringify(data.dps)}`);
-          updateUiState(data.subId, data.dps);
+          updateDeviceState(data.gatewayId, data.subId, data.dps);
+        } else if (data.type === 'gateway_updated' || data.type === 'gateway_added' || data.type === 'renamed' || data.type === 'new_subdevice') {
+          refreshData();
         } else if (data.type === 'log') {
           addLog(data.level || 'INFO', data.msg);
         }
       } catch(e) {}
     };
 
-    function updateUiState(subId, dps) {
-      if (!subId || !dps) return;
+    function addLog(level, msg) {
+      const box = document.getElementById('packet-console');
+      if (!box) return;
+      const time = new Date().toLocaleTimeString();
+      const div = document.createElement('div');
+      div.className = 'log-line';
+      div.innerHTML = `<span class="log-time">[${time}]</span> <span class="log-${level.toLowerCase()}">[${level}]</span> ${escapeHtml(msg)}`;
+      box.appendChild(div);
+      box.scrollTop = box.scrollHeight;
+    }
+
+    function escapeHtml(str) {
+      return (str || '').toString().replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    }
+
+    // Fetch and render data
+    async function refreshData() {
+      try {
+        const [gwRes, devRes] = await Promise.all([
+          fetch(`${basePath}api/gateways`),
+          fetch(`${basePath}api/devices`)
+        ]);
+        gatewaysData = await gwRes.json();
+        allDevicesData = await devRes.json();
+
+        renderGroupedDevices();
+        renderGatewaysTable();
+        renderAllDevicesGrid();
+        document.getElementById('gateway-count').innerText = `${gatewaysData.length} Gateway${gatewaysData.length > 1 ? 's' : ''} Active`;
+      } catch (e) {
+        console.error('Refresh failed:', e);
+      }
+    }
+
+    function renderGroupedDevices() {
+      const container = document.getElementById('grouped-devices-container');
+      container.innerHTML = '';
+
+      gatewaysData.forEach((gw) => {
+        const group = document.createElement('div');
+        group.className = 'gateway-group';
+
+        const header = document.createElement('div');
+        header.className = 'gateway-group-header';
+        header.innerHTML = `
+          <div class="gw-title-area">
+            <span class="indicator ${gw.connected ? '' : 'offline'}"></span>
+            <span style="font-weight: 700; font-size: 1.05rem;">${escapeHtml(gw.name)}</span>
+            <span class="gw-pill">IP: ${gw.ip}</span>
+            <span class="gw-pill">MAC: ${gw.mac || 'N/A'}</span>
+            <span class="edit-icon" onclick="promptRename('gateway', '${gw.id}', null, '${escapeHtml(gw.name)}')">✏️ Rename</span>
+          </div>
+          <div style="display:flex; gap:8px;">
+            <button class="btn btn-secondary btn-sm" onclick="rescanGateway('${gw.id}')">Rescan DALI</button>
+          </div>
+        `;
+        group.appendChild(header);
+
+        const grid = document.createElement('div');
+        grid.className = 'device-grid';
+
+        const devKeys = Object.keys(gw.subDevices || {});
+        if (devKeys.length === 0) {
+          grid.innerHTML = `<div style="grid-column: 1/-1; color: var(--text-muted); font-size: 0.9rem;">No sub-devices discovered on this gateway yet.</div>`;
+        } else {
+          devKeys.forEach((subId) => {
+            const dev = gw.subDevices[subId];
+            grid.appendChild(createDeviceCard(gw.id, gw.name, gw.ip, subId, dev));
+          });
+        }
+
+        group.appendChild(grid);
+        container.appendChild(group);
+      });
+    }
+
+    function createDeviceCard(gwId, gwName, gwIp, subId, dev) {
+      const card = document.createElement('div');
+      card.className = 'card';
+      card.id = `card-${gwId}-${subId}`;
+
+      const dps = dev.dps || {};
+      const isPower = dps['20'] === true;
+      const briVal = dps['22'] !== undefined ? dps['22'] : 1000;
+      const briPct = Math.round(((briVal - 10) / 990) * 100);
+      const cctVal = dps['23'] !== undefined ? dps['23'] : 500;
+      const kelvin = Math.round(2000 + (cctVal / 1000) * 4500);
+      const isCct = dev.type === 'light_cct' || dev.type === 'light_rgbcw';
+      const isRgb = dev.type === 'light_rgb' || dev.type === 'light_rgbw' || dev.type === 'light_rgbcw';
+
+      card.innerHTML = `
+        <div class="card-header">
+          <span class="device-name">
+            <span id="name-${gwId}-${subId}">${escapeHtml(dev.name || subId)}</span>
+            <span class="edit-icon" onclick="promptRename('device', '${gwId}', '${subId}', '${escapeHtml(dev.name || subId)}')">✏️</span>
+          </span>
+          <span class="gw-pill">${escapeHtml(dev.type || 'dimmer')}</span>
+        </div>
+        <div class="device-meta">
+          <span>CID: ${dev.devId || subId}</span>
+          <span style="color: #60a5fa;">via ${escapeHtml(gwName)}</span>
+        </div>
+        <div class="switch-row">
+          <span style="font-weight: 600; font-size: 0.9rem;">Power State</span>
+          <label class="toggle">
+            <input type="checkbox" id="power-${gwId}-${subId}" ${isPower ? 'checked' : ''} onchange="togglePower('${gwId}', '${subId}', this.checked)">
+            <span class="slider-toggle"></span>
+          </label>
+        </div>
+        <div class="control-row">
+          <div class="control-label">
+            <span>Brightness</span>
+            <span id="val-bri-${gwId}-${subId}">${briPct}%</span>
+          </div>
+          <input type="range" class="range-slider" min="10" max="1000" value="${briVal}" oninput="document.getElementById('val-bri-${gwId}-${subId}').innerText = Math.round(((this.value-10)/990)*100) + '%'" onchange="setBrightness('${gwId}', '${subId}', this.value)">
+        </div>
+        ${isCct ? `
+        <div class="control-row">
+          <div class="control-label">
+            <span>Color Temp</span>
+            <span id="val-cct-${gwId}-${subId}">${kelvin}K</span>
+          </div>
+          <input type="range" class="range-slider cct-slider" min="0" max="1000" value="${cctVal}" oninput="document.getElementById('val-cct-${gwId}-${subId}').innerText = Math.round(2000 + (this.value/1000)*4500) + 'K'" onchange="setColorTemp('${gwId}', '${subId}', this.value)">
+        </div>
+        ` : ''}
+        ${isRgb ? `
+        <div class="color-picker-row">
+          <span style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted);">RGB Hue</span>
+          <input type="color" class="color-input" value="#ff0000" onchange="setColorRgb('${gwId}', '${subId}', this.value)">
+        </div>
+        ` : ''}
+      `;
+      return card;
+    }
+
+    function renderGatewaysTable() {
+      const tbody = document.getElementById('gateways-table-body');
+      tbody.innerHTML = '';
+
+      gatewaysData.forEach((gw) => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td><strong>${escapeHtml(gw.name)}</strong></td>
+          <td><span class="gw-pill">${gw.id}</span></td>
+          <td><span style="color:#60a5fa; font-family:var(--font-mono);">${gw.ip}:${gw.port}</span></td>
+          <td><span style="font-family:var(--font-mono);">${gw.mac || 'N/A'}</span></td>
+          <td>${escapeHtml(gw.type)}</td>
+          <td><span class="indicator ${gw.connected ? '' : 'offline'}"></span> ${gw.connected ? 'Connected' : 'Offline'}</td>
+          <td>${gw.subDeviceCount || 0}</td>
+          <td>
+            <button class="btn btn-secondary btn-sm" onclick="promptRename('gateway', '${gw.id}', null, '${escapeHtml(gw.name)}')">Rename</button>
+            <button class="btn btn-secondary btn-sm" onclick="rescanGateway('${gw.id}')">Rescan</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteGateway('${gw.id}')">Delete</button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function renderAllDevicesGrid() {
+      const grid = document.getElementById('all-devices-grid');
+      grid.innerHTML = '';
+      allDevicesData.forEach((d) => {
+        grid.appendChild(createDeviceCard(d.gatewayId, d.gatewayName, d.gatewayIp, d.subId, d));
+      });
+    }
+
+    function filterAllDevices() {
+      const query = document.getElementById('device-search').value.toLowerCase();
+      const cards = document.getElementById('all-devices-grid').children;
+      Array.from(cards).forEach((card) => {
+        card.style.display = card.innerText.toLowerCase().includes(query) ? '' : 'none';
+      });
+    }
+
+    // Hardware Actions
+    async function togglePower(gwId, subId, state) {
+      addLog('TUYA', `Dispatching Power ${state ? 'ON' : 'OFF'} -> ${gwId}/${subId}`);
+      await fetch(`${basePath}api/control`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ gatewayId: gwId, subId, dps: { '20': state } })
+      });
+    }
+
+    async function setBrightness(gwId, subId, val) {
+      addLog('TUYA', `Dispatching Brightness ${val} -> ${gwId}/${subId}`);
+      await fetch(`${basePath}api/control`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ gatewayId: gwId, subId, dps: { '22': parseInt(val), '20': true } })
+      });
+    }
+
+    async function setColorTemp(gwId, subId, val) {
+      addLog('TUYA', `Dispatching Color Temp ${val} -> ${gwId}/${subId}`);
+      await fetch(`${basePath}api/control`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ gatewayId: gwId, subId, dps: { '23': parseInt(val) } })
+      });
+    }
+
+    async function setColorRgb(gwId, subId, hex) {
+      const r = parseInt(hex.slice(1, 3), 16);
+      const g = parseInt(hex.slice(3, 5), 16);
+      const b = parseInt(hex.slice(5, 7), 16);
+      addLog('TUYA', `Dispatching RGB [${r},${g},${b}] -> ${gwId}/${subId}`);
+      // Tuya DP 24 HSV conversion
+      await fetch(`${basePath}api/control`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          gatewayId: gwId,
+          subId,
+          dps: { '20': true, '21': 'colour' }
+        })
+      });
+    }
+
+    async function promptRename(targetType, id, subId, currentName) {
+      const newName = prompt(`Enter new friendly name:`, currentName);
+      if (!newName || newName.trim() === currentName) return;
+
+      await fetch(`${basePath}api/rename`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ targetType, id, subId, name: newName.trim() })
+      });
+      refreshData();
+    }
+
+    async function rescanGateway(id) {
+      addLog('INFO', `Rescanning sub-devices on gateway ${id}...`);
+      await fetch(`${basePath}api/gateway/rescan`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id })
+      });
+      refreshData();
+    }
+
+    async function deleteGateway(id) {
+      if (!confirm(`Are you sure you want to remove gateway ${id}?`)) return;
+      await fetch(`${basePath}api/gateway/delete`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id })
+      });
+      refreshData();
+    }
+
+    async function submitAddGateway() {
+      const ip = document.getElementById('add-gw-ip').value.trim();
+      const name = document.getElementById('add-gw-name').value.trim();
+      const type = document.getElementById('add-gw-type').value;
+      const autoRecover = document.getElementById('add-gw-autorecover').checked;
+
+      if (!ip) {
+        alert('Please enter a valid Gateway IP address.');
+        return;
+      }
+
+      addLog('INFO', `Adopting gateway at ${ip} (auto-recover: ${autoRecover})...`);
+      const res = await fetch(`${basePath}api/gateway/add`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ip, name, type, autoRecover })
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert(`Gateway successfully commissioned! Found ${data.gateway.subDeviceCount} sub-devices.`);
+        switchTab('gateways');
+        refreshData();
+      } else {
+        alert(`Commissioning failed: ${data.error}`);
+      }
+    }
+
+    async function scanNetwork() {
+      addLog('DISCOVERY', 'Scanning local network for Tuya UDP broadcasts and gateways...');
+      const res = await fetch(`${basePath}api/discovery`);
+      const devs = await res.json();
+      const container = document.getElementById('discovered-gateways-list');
+      if (!devs || devs.length === 0) {
+        container.innerHTML = `<p style="color:var(--text-muted); font-size:0.85rem;">No new unadopted devices found. Searching...</p>`;
+      } else {
+        container.innerHTML = devs.map(d => `
+          <div style="background:#0f172a; padding:10px; border-radius:6px; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center;">
+            <div>
+              <div style="font-weight:600;">${d.gwId}</div>
+              <div style="font-size:0.75rem; color:var(--text-muted);">IP: ${d.ip} (v${d.version})</div>
+            </div>
+            <button class="btn btn-sm" onclick="adoptDiscovered('${d.ip}', '${d.gwId}')">Adopt Gateway</button>
+          </div>
+        `).join('');
+      }
+    }
+
+    function adoptDiscovered(ip, gwId) {
+      document.getElementById('add-gw-ip').value = ip;
+      document.getElementById('add-gw-name').value = `Gateway ${ip}`;
+      submitAddGateway();
+    }
+
+    function showActionBadge(gwId, subId, button, action) {
+      const card = document.getElementById(`card-${gwId}-${subId}`);
+      if (!card) return;
+      let badge = card.querySelector('.action-badge');
+      if (!badge) {
+        badge = document.createElement('div');
+        badge.className = 'action-badge';
+        card.appendChild(badge);
+      }
+      const time = new Date().toLocaleTimeString();
+      badge.innerHTML = `<span>⚡ Action Triggered:</span> <strong>Button ${escapeHtml(button)} (${escapeHtml(action)})</strong> <span style="font-size:0.7rem; color:var(--text-muted); margin-left:auto;">${time}</span>`;
+    }
+
+    function updateDeviceState(gwId, subId, dps) {
+      if (!dps) return;
       if (dps['20'] !== undefined) {
-        const pwr = document.getElementById(`power-${subId}`);
+        const pwr = document.getElementById(`power-${gwId}-${subId}`);
         if (pwr) pwr.checked = dps['20'];
-        const dp20Elem = document.getElementById(`dps-${subId}-20`);
-        if (dp20Elem) dp20Elem.innerText = dps['20'];
       }
       if (dps['22'] !== undefined) {
-        const bri = document.getElementById(`bri-${subId}`);
-        if (bri) {
-          bri.value = dps['22'];
-          updateValLabel(`val-bri-${subId}`, dps['22'], '%');
-        }
-        const dp22Elem = document.getElementById(`dps-${subId}-22`);
-        if (dp22Elem) dp22Elem.innerText = dps['22'];
+        const briLabel = document.getElementById(`val-bri-${gwId}-${subId}`);
+        if (briLabel) briLabel.innerText = Math.round(((dps['22'] - 10) / 990) * 100) + '%';
       }
       if (dps['23'] !== undefined) {
-        const cct = document.getElementById(`cct-${subId}`);
-        if (cct) {
-          cct.value = dps['23'];
-          updateKelvinLabel(`val-cct-${subId}`, dps['23']);
-        }
-        const dp23Elem = document.getElementById(`dps-${subId}-23`);
-        if (dp23Elem) dp23Elem.innerText = dps['23'];
+        const cctLabel = document.getElementById(`val-cct-${gwId}-${subId}`);
+        if (cctLabel) cctLabel.innerText = Math.round(2000 + (dps['23'] / 1000) * 4500) + 'K';
       }
-    }
-
-    // Hardware API Controls
-    async function toggleDevice(subId, state) {
-      addLog('TUYA', `Dispatching Toggle to ${subId}: ${state ? 'ON' : 'OFF'}`);
-      await fetch(`${basePath}api/control`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ subId: subId, dps: { '20': state } })
-      });
-      updateUiState(subId, { '20': state });
-    }
-
-    async function setBrightness(subId, val) {
-      addLog('TUYA', `Dispatching Brightness to ${subId}: ${val}`);
-      await fetch(`${basePath}api/control`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ subId: subId, dps: { '22': parseInt(val), '20': true } })
-      });
-      updateUiState(subId, { '20': true, '22': parseInt(val) });
-    }
-
-    async function setColorTemp(subId, val) {
-      addLog('TUYA', `Dispatching Color Temp to ${subId}: ${val}`);
-      await fetch(`${basePath}api/control`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ subId: subId, dps: { '23': parseInt(val) } })
-      });
-      updateUiState(subId, { '23': parseInt(val) });
     }
 
     function allOn() {
-      ['dali_0', 'dali_1', 'dali_2'].forEach(s => toggleDevice(s, true));
+      allDevicesData.forEach(d => togglePower(d.gatewayId, d.subId, true));
     }
 
     function allOff() {
-      ['dali_0', 'dali_1', 'dali_2'].forEach(s => toggleDevice(s, false));
+      allDevicesData.forEach(d => togglePower(d.gatewayId, d.subId, false));
     }
 
-    async function injectRawDp() {
-      const subId = document.getElementById('inject-sub').value;
-      const dpId = document.getElementById('inject-dpid').value;
-      let rawVal = document.getElementById('inject-val').value;
-      if (rawVal.toLowerCase() === 'true') rawVal = true;
-      else if (rawVal.toLowerCase() === 'false') rawVal = false;
-      else if (!isNaN(rawVal)) rawVal = parseInt(rawVal);
-
-      const dps = {};
-      dps[dpId] = rawVal;
-      addLog('TUYA', `Injecting Raw DP ${dpId} = ${rawVal} to ${subId}`);
-      await fetch(`${basePath}api/control`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ subId: subId, dps: dps })
-      });
-    }
-
-    function testPing(subId) {
-      addLog('INFO', `Testing hardware route to ${subId}...`);
-      toggleDevice(subId, true);
-      setTimeout(() => toggleDevice(subId, false), 1200);
-    }
-
-    async function refreshDevices() {
-      const res = await fetch(`${basePath}api/devices`);
-      const devs = await res.json();
-      if (devs && devs.length > 0 && devs[0].subDevices) {
-        for (const [sub, info] of Object.entries(devs[0].subDevices)) {
-          updateUiState(sub, info.dps);
-        }
-      }
-    }
-
-    addLog('INFO', 'Gavasah Tuya LAN Gateway Ingress Dashboard initialized.');
-    addLog('INFO', 'Connected to Sunricher DALI Center at 192.168.1.210 (Key: K}>t}vi=XskqREC@).');
-    refreshDevices();
+    // Initial load
+    refreshData();
   </script>
 </body>
 </html>

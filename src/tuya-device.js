@@ -1,13 +1,14 @@
 /**
  * GAVASAH Tuya LAN Gateway - Device TCP Client
- * Manages persistent bi-directional TCP sessions on Port 6668
+ * Manages persistent bi-directional TCP sessions on Port 6668 with Dynamic DHCP Re-binding
  */
 
 const net = require('net');
 const EventEmitter = require('events');
 const { COMMANDS, encodeFrame, decodeFrame } = require('./tuya-cipher');
+const { inferDriverType, isRemoteAction } = require('./dali-helper');
 
-// CID mappings for Sunricher DALI Center
+// Default initial CID mappings for Sunricher DALI Center
 const SUB_DEVICE_MAP = {
   'dali_0': '010008020000',
   'dali_1': '010008020001',
@@ -22,27 +23,53 @@ class TuyaDevice extends EventEmitter {
     super();
     this.id = options.id;                     // Device ID / gwId (e.g. d7b3f345b23032557azteo)
     this.name = options.name || options.id;
-    this.ip = options.ip;                     // LAN IP (e.g. 192.168.1.210)
+    this.ip = options.ip;                     // Dynamic LAN IP
+    this.mac = options.mac || '00:0c:43:e1:76:29'; // Hardware MAC address
     this.port = options.port || 6668;         // Default Tuya TCP port
     this.key = options.local_key || 'K}>t}vi=XskqREC@'; // 16-character local_key
     this.version = options.version || '3.3';  // Protocol version
-    this.type = options.type || 'generic';    // Device category
+    this.type = options.type || 'dali_gateway'; // Gateway category
 
     this.socket = null;
     this.isConnected = false;
+    this.lastPing = 0;
+    this.pingLatency = 0;
     this.seq = 1;
     this.heartbeatTimer = null;
     this.reconnectTimer = null;
-    
-    // Per sub-device Data Point cache with verified hardware schema (DP 20, 22, 23)
-    this.subDevices = {
-      'dali_0': { devId: '010008020000', dps: { '20': false, '22': 1000, '23': 500 } },
-      'dali_1': { devId: '010008020001', dps: { '20': false, '22': 1000, '23': 500 } },
-      'dali_2': { devId: '010006000002', dps: { '20': false, '22': 1000 } }
+
+    // Per sub-device Data Point cache with verified hardware schema (DP 20, 22, 23, 24)
+    this.subDevices = options.subDevices || {
+      'dali_0': { devId: '010008020000', name: 'DALI Lamp 0', type: 'light_cct', dps: { '20': false, '22': 1000, '23': 500 } },
+      'dali_1': { devId: '010008020001', name: 'DALI Lamp 1', type: 'light_cct', dps: { '20': false, '22': 1000, '23': 500 } },
+      'dali_2': { devId: '010006000002', name: 'DALI Lamp 2', type: 'dimmer', dps: { '20': false, '22': 1000 } }
     };
+
+    // Populate lookup maps
+    Object.entries(this.subDevices).forEach(([subId, info]) => {
+      if (info.devId) {
+        SUB_DEVICE_MAP[subId] = info.devId;
+        SUB_DEVICE_MAP[info.devId] = subId;
+      }
+    });
 
     this.dps = {};                            // Gateway root DPs
     this.incomingBuffer = Buffer.alloc(0);
+  }
+
+  /**
+   * Dynamic DHCP update: update IP and reconnect immediately if IP changed
+   */
+  updateIp(newIp) {
+    if (this.ip !== newIp) {
+      this.emit('log', `[${this.name}] Dynamic DHCP Re-bind: ${this.ip} -> ${newIp}`);
+      this.ip = newIp;
+      if (this.isConnected || this.socket) {
+        this.destroy();
+      }
+      this.connect();
+      this.emit('ip-changed', { id: this.id, ip: this.ip, mac: this.mac });
+    }
   }
 
   /**
@@ -61,7 +88,7 @@ class TuyaDevice extends EventEmitter {
     this.socket.connect(this.port, this.ip, () => {
       this.isConnected = true;
       this.emit('log', `[${this.name}] Connected to ${this.ip} on TCP ${this.port}`);
-      this.emit('connected', { id: this.id, ip: this.ip });
+      this.emit('connected', { id: this.id, ip: this.ip, mac: this.mac });
 
       // Start periodic heartbeat
       this.startHeartbeat();
@@ -73,7 +100,6 @@ class TuyaDevice extends EventEmitter {
 
     this.socket.on('error', (err) => {
       this.emit('log', `[${this.name}] Socket error: ${err.message}`);
-      // Safely handle error without crashing EventEmitter
     });
 
     this.socket.on('close', () => {
@@ -86,7 +112,7 @@ class TuyaDevice extends EventEmitter {
   }
 
   /**
-   * Process raw bytes from the TCP stream and extract frames
+   * Handle stream fragmentation & extract full Tuya frames
    */
   handleIncomingData(chunk) {
     this.incomingBuffer = Buffer.concat([this.incomingBuffer, chunk]);
@@ -125,6 +151,10 @@ class TuyaDevice extends EventEmitter {
       const decoded = decodeFrame(frameBuf, this.key, this.version);
       if (!decoded) return;
 
+      if (decoded.cmd === COMMANDS.HEARTBEAT && this.lastPing > 0) {
+        this.pingLatency = Date.now() - this.lastPing;
+      }
+
       this.emit('raw-packet', {
         id: this.id,
         direction: 'in',
@@ -133,19 +163,70 @@ class TuyaDevice extends EventEmitter {
         timestamp: Date.now()
       });
 
-      // Handle unsolicited STATUS push (0x08) from mobile app or physical wall switch
+      // Handle unsolicited STATUS push (0x08) or CONTROL ACK (0x07)
       if (decoded.payload && typeof decoded.payload === 'object') {
         const receivedDevId = decoded.payload.cid || decoded.payload.devId;
         const receivedDps = decoded.payload.dps || {};
-        const subId = SUB_DEVICE_MAP[receivedDevId] || 'dali_0';
 
-        if (this.subDevices[subId]) {
-          for (const [dpId, val] of Object.entries(receivedDps)) {
-            this.subDevices[subId].dps[dpId] = val;
-            this.emit('dp-update', { id: this.id, subId, dp: dpId, value: val });
+        if (receivedDevId) {
+          let subId = SUB_DEVICE_MAP[receivedDevId];
+
+          // Auto-sync: automatically discover any new sub-device (DALI or Zigbee endpoint)
+          if (!subId) {
+            const nextIdx = Object.keys(this.subDevices).length;
+            subId = `dev_${nextIdx}`;
+            SUB_DEVICE_MAP[receivedDevId] = subId;
+            SUB_DEVICE_MAP[subId] = receivedDevId;
+
+            const detectedType = inferDriverType(receivedDps);
+            this.subDevices[subId] = {
+              devId: receivedDevId,
+              name: `SubDevice ${nextIdx}`,
+              type: detectedType,
+              dps: { ...receivedDps },
+              lastAction: null
+            };
+
+            this.emit('log', `[${this.name}] Auto-Discovered new endpoint: ${subId} (${receivedDevId}, type: ${detectedType})`);
+            this.emit('new-subdevice', { gatewayId: this.id, subId, subDevice: this.subDevices[subId] });
           }
-          this.emit('log', `[${this.name}] 2-Way Update from Gateway [${subId}]: ${JSON.stringify(receivedDps)}`);
-          this.emit('status', { id: this.id, subId, dps: { ...this.subDevices[subId].dps } });
+
+          // Check if this payload represents a remote button press or scene action
+          const remoteCheck = isRemoteAction(receivedDps);
+          if (remoteCheck.isRemote) {
+            const actionText = `Button ${remoteCheck.button}: ${remoteCheck.action}`;
+            if (this.subDevices[subId]) {
+              this.subDevices[subId].lastAction = {
+                action: remoteCheck.action,
+                button: remoteCheck.button,
+                timestamp: Date.now(),
+                text: actionText
+              };
+            }
+            this.emit('log', `[${this.name}] ⚡ REMOTE ACTION [${subId}]: ${actionText} (Raw DPs: ${JSON.stringify(receivedDps)})`);
+            this.emit('action', {
+              gatewayId: this.id,
+              subId,
+              action: remoteCheck.action,
+              button: remoteCheck.button,
+              dps: receivedDps,
+              timestamp: Date.now()
+            });
+          }
+
+          if (this.subDevices[subId]) {
+            for (const [dpId, val] of Object.entries(receivedDps)) {
+              this.subDevices[subId].dps[dpId] = val;
+              this.emit('dp-update', { id: this.id, subId, dp: dpId, value: val });
+            }
+            this.emit('log', `[${this.name}] 2-Way Update from Gateway [${subId}]: ${JSON.stringify(receivedDps)}`);
+            this.emit('status', {
+              id: this.id,
+              subId,
+              dps: { ...this.subDevices[subId].dps },
+              lastAction: this.subDevices[subId].lastAction
+            });
+          }
         }
       }
     } catch (err) {
@@ -211,6 +292,7 @@ class TuyaDevice extends EventEmitter {
     this.stopHeartbeat();
     this.heartbeatTimer = setInterval(() => {
       if (this.isConnected && this.socket) {
+        this.lastPing = Date.now();
         const frame = encodeFrame(COMMANDS.HEARTBEAT, {}, this.key, this.version, this.seq++);
         this.send(frame, COMMANDS.HEARTBEAT, {});
       }

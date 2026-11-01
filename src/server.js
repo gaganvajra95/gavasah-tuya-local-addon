@@ -1,6 +1,6 @@
 /**
  * GAVASAH Tuya LAN Gateway - Main Server Entrypoint
- * Orchestrates Discovery, TCP Session Management, MQTT Bridge, and Web Ingress
+ * Multi-Gateway Orchestration, Dynamic DHCP Re-binding, MQTT Bridge, and Web Ingress
  */
 
 const fs = require('fs');
@@ -9,9 +9,10 @@ const http = require('http');
 const express = require('express');
 const { WebSocketServer } = require('ws');
 
-const TuyaDevice = require('./tuya-device');
+const GatewayManager = require('./gateway-manager');
 const TuyaDiscovery = require('./tuya-discovery');
 const MqttBridge = require('./mqtt-bridge');
+const pkg = require('../package.json');
 
 // 1. Initialize Web Express & WebSocket Server (HA Ingress Port 8099)
 const app = express();
@@ -48,8 +49,7 @@ let options = {
   mqtt_user: process.env.MQTT_USER || '',
   mqtt_password: process.env.MQTT_PASSWORD || '',
   log_level: 'info',
-  auto_discover_udp: true,
-  devices: []
+  auto_discover_udp: true
 };
 
 const optionsPath = process.env.OPTIONS_PATH || '/data/options.json';
@@ -63,31 +63,8 @@ if (fs.existsSync(optionsPath)) {
   }
 }
 
-// Verified configuration for Sunricher DALI Center
-const DEFAULT_GATEWAY_CONFIG = {
-  id: 'd7b3f345b23032557azteo',
-  name: 'Sunricher DALI Center',
-  ip: '192.168.1.210',
-  port: 6668,
-  local_key: 'K}>t}vi=XskqREC@',
-  version: '3.3',
-  type: 'dali_gateway'
-};
-
-if (!options.devices || options.devices.length === 0) {
-  options.devices = [DEFAULT_GATEWAY_CONFIG];
-} else {
-  // Ensure local_key is updated if placeholder was used
-  options.devices.forEach((d) => {
-    if (!d.local_key || d.local_key === '0000000000000000') {
-      d.local_key = 'K}>t}vi=XskqREC@';
-      d.id = 'd7b3f345b23032557azteo';
-    }
-  });
-}
-
 console.log('=====================================================');
-console.log('       GAVASAH Tuya LAN Gateway v1.0.1               ');
+console.log(`       GAVASAH Tuya LAN Gateway v${pkg.version}       `);
 console.log('=====================================================');
 
 // 3. Initialize MQTT Bridge
@@ -104,80 +81,197 @@ mqttBridge.on('log', (msg) => {
 });
 mqttBridge.connect();
 
-// 4. Initialize Tuya Devices
-const activeDevices = new Map();
+// 4. Initialize Gateway Manager
+const gatewayMgr = new GatewayManager();
 
-options.devices.forEach((devConf) => {
-  console.log(`[Device] Initializing device: ${devConf.name} (${devConf.ip}:${devConf.port || 6668})`);
-  const device = new TuyaDevice(devConf);
-
-  device.on('log', (msg) => {
-    console.log(msg);
-    broadcastWs({ type: 'log', level: 'TUYA', msg });
-  });
-
-  device.on('error', (err) => {
-    console.error(`[Device Error] ${devConf.name}:`, err.message);
-    broadcastWs({ type: 'log', level: 'ERROR', msg: err.message });
-  });
-
-  device.on('raw-packet', (packet) => {
-    broadcastWs({ type: 'packet', ...packet });
-  });
-
-  device.on('status', (data) => {
-    broadcastWs({ type: 'state_update', device: device.id, subId: data.subId, dps: data.dps });
-  });
-
-  mqttBridge.registerDevice(device);
-  activeDevices.set(device.id, device);
-
-  // Initiate TCP connection
-  device.connect();
+gatewayMgr.on('log', (msg) => {
+  console.log(msg);
+  broadcastWs({ type: 'log', level: 'TUYA', msg });
 });
 
-// 5. Initialize UDP Auto-Discovery
+gatewayMgr.on('raw-packet', (packet) => {
+  broadcastWs({ type: 'packet', ...packet });
+});
+
+gatewayMgr.on('status', (data) => {
+  broadcastWs({
+    type: 'state_update',
+    gatewayId: data.gateway.id,
+    subId: data.subId,
+    dps: data.dps
+  });
+});
+
+gatewayMgr.on('action', (data) => {
+  broadcastWs({
+    type: 'remote_action',
+    gatewayId: data.gateway ? data.gateway.id : data.gatewayId,
+    subId: data.subId,
+    action: data.action,
+    button: data.button,
+    dps: data.dps,
+    timestamp: data.timestamp
+  });
+});
+
+gatewayMgr.on('gateway-added', (gw) => {
+  mqttBridge.registerGateway(gw);
+  broadcastWs({ type: 'gateway_added', gateway: gatewayMgr.getGatewayInfo(gw) });
+});
+
+gatewayMgr.on('gateway-updated', (info) => {
+  broadcastWs({ type: 'gateway_updated', gateway: info });
+});
+
+gatewayMgr.on('new-subdevice', (data) => {
+  broadcastWs({ type: 'new_subdevice', ...data });
+});
+
+gatewayMgr.on('renamed', (info) => {
+  if (info.targetType === 'gateway') {
+    const gw = gatewayMgr.gateways.get(info.id);
+    if (gw) mqttBridge.publishGatewayDiscovery(gw);
+  } else if (info.targetType === 'device') {
+    const gw = gatewayMgr.gateways.get(info.id);
+    if (gw && gw.subDevices && gw.subDevices[info.subId]) {
+      mqttBridge.publishSubDeviceDiscovery(gw, info.subId, gw.subDevices[info.subId]);
+    }
+  }
+  broadcastWs({ type: 'renamed', ...info });
+});
+
+// Register existing gateways to MQTT bridge
+gatewayMgr.gateways.forEach((gw) => {
+  mqttBridge.registerGateway(gw);
+});
+
+// 5. Initialize UDP Discovery (Dynamic DHCP re-binding engine)
 const discovery = new TuyaDiscovery();
 discovery.on('log', (msg) => {
   console.log(msg);
   broadcastWs({ type: 'log', level: 'DISCOVERY', msg });
 });
+
+discovery.on('raw-discovery', (disc) => {
+  // If IP changed via DHCP, immediately rebind TCP socket
+  gatewayMgr.handleDiscoveredEndpoint(disc);
+  broadcastWs({ type: 'discovered_endpoint', endpoint: disc });
+});
+
 if (options.auto_discover_udp) {
   discovery.start();
 }
 
 // REST Endpoints
+app.get('/api/gateways', (req, res) => {
+  res.json(gatewayMgr.getAllGateways());
+});
+
 app.get('/api/devices', (req, res) => {
-  const result = Array.from(activeDevices.values()).map((d) => ({
-    id: d.id,
-    name: d.name,
-    ip: d.ip,
-    port: d.port,
-    version: d.version,
-    type: d.type,
-    connected: d.isConnected,
-    subDevices: d.subDevices,
-    dps: d.dps
-  }));
-  res.json(result);
+  res.json(gatewayMgr.getAllDevices());
 });
 
 app.get('/api/discovery', (req, res) => {
   res.json(discovery.getDevices());
 });
 
+// Hardware Control Endpoint
 app.post('/api/control', (req, res) => {
-  const { deviceId, subId, dps } = req.body;
-  const targetId = deviceId || 'd7b3f345b23032557azteo';
-  const device = activeDevices.get(targetId) || activeDevices.values().next().value;
-  if (!device) {
-    return res.status(404).json({ error: 'Device not found' });
+  const { gatewayId, deviceId, subId, dps } = req.body;
+  const targetGwId = gatewayId || deviceId || 'd7b3f345b23032557azteo';
+  const gw = gatewayMgr.gateways.get(targetGwId) || gatewayMgr.gateways.values().next().value;
+
+  if (!gw) {
+    return res.status(404).json({ error: 'Gateway not found' });
   }
 
   try {
     const targetSub = subId || 'dali_0';
-    device.set(dps, targetSub);
-    res.json({ success: true, subId: targetSub, subDevices: device.subDevices });
+    gw.set(dps, targetSub);
+    res.json({ success: true, subId: targetSub, subDevices: gw.subDevices });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Rename Device or Gateway Endpoint
+app.post('/api/rename', (req, res) => {
+  const { targetType, id, subId, name } = req.body;
+  if (!id || !name) {
+    return res.status(400).json({ error: 'Missing id or name' });
+  }
+
+  try {
+    gatewayMgr.rename(targetType || 'device', id, subId, name);
+    res.json({ success: true, name });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Add Gateway Endpoint (with automatic key recovery via Telnet/SSH)
+app.post('/api/gateway/add', async (req, res) => {
+  const { ip, name, type, autoRecover, id, local_key, mac } = req.body;
+  if (!ip) {
+    return res.status(400).json({ error: 'Missing gateway IP address' });
+  }
+
+  try {
+    let conf = {
+      id: id || `tuya_${ip.replace(/\./g, '_')}`,
+      name: name || `Gateway ${ip}`,
+      ip: ip,
+      mac: mac || '00:0c:43:e1:76:29',
+      port: 6668,
+      local_key: local_key || 'K}>t}vi=XskqREC@',
+      version: '3.3',
+      type: type || 'dali_gateway'
+    };
+
+    if (autoRecover !== false) {
+      try {
+        console.log(`[Gateway Manager] Auto-recovering credentials from ${ip}...`);
+        const recovered = await gatewayMgr.autoRecoverGateway(ip);
+        if (recovered) {
+          conf = { ...conf, ...recovered };
+          if (name) conf.name = name;
+        }
+      } catch (recErr) {
+        console.log(`[Gateway Manager] Auto-recovery skipped: ${recErr.message}`);
+      }
+    }
+
+    const device = gatewayMgr.addGateway(conf, true);
+    res.json({ success: true, gateway: gatewayMgr.getGatewayInfo(device) });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Delete Gateway Endpoint
+app.post('/api/gateway/delete', (req, res) => {
+  const { id } = req.body;
+  if (!id) return res.status(400).json({ error: 'Missing gateway id' });
+
+  const ok = gatewayMgr.removeGateway(id);
+  mqttBridge.unregisterGateway(id);
+  res.json({ success: ok });
+});
+
+// Rescan Sub-devices for Gateway
+app.post('/api/gateway/rescan', async (req, res) => {
+  const { id } = req.body;
+  const gw = gatewayMgr.gateways.get(id);
+  if (!gw) return res.status(404).json({ error: 'Gateway not found' });
+
+  try {
+    const recovered = await gatewayMgr.autoRecoverGateway(gw.ip);
+    if (recovered && recovered.subDevices) {
+      gw.subDevices = { ...gw.subDevices, ...recovered.subDevices };
+      gatewayMgr.persistGateways();
+      mqttBridge.publishGatewayDiscovery(gw);
+    }
+    res.json({ success: true, subDevices: gw.subDevices });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
