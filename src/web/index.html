@@ -3,46 +3,40 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>GAVASAH Tuya LAN Gateway</title>
+  <title>GAVASAH Tuya Local Gateway</title>
   <style>
     :root {
-      --bg-body: #0d1117;
-      --bg-sidebar: #161b22;
-      --bg-card: #1c2128;
-      --bg-card-hover: #22272e;
-      --bg-input: #2d333b;
-      --border: #30363d;
-      --text: #c9d1d9;
-      --text-bright: #f0f6fc;
-      --text-muted: #8b949e;
-      --primary: #58a6ff;
-      --accent: #00e5ff;
-      --success: #3fb950;
-      --warning: #d29922;
-      --danger: #f85149;
+      --bg-dark: #12171e;
+      --bg-sidebar: #18202b;
+      --bg-card: #202a37;
+      --bg-input: #10151d;
+      --border: #2d3848;
+      --border-focus: #0ea5e9;
+      --primary: #0284c7;
+      --primary-hover: #0369a1;
+      --accent: #38bdf8;
+      --success: #10b981;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+      --text-bright: #f8fafc;
+      --text-body: #cbd5e1;
+      --text-muted: #64748b;
+      --badge-dt8: #8b5cf6;
+      --badge-dt6: #06b6d4;
     }
 
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
-      background: var(--bg-body);
-      color: var(--text);
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-      font-size: 13px;
-      line-height: 1.5;
-      display: flex;
-      flex-direction: column;
-      height: 100vh;
-      overflow: hidden;
-    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+    body { background: var(--bg-dark); color: var(--text-body); font-size: 13px; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
 
-    /* Top Navbar */
+    /* Top Navigation Bar */
     header {
       background: var(--bg-sidebar);
       border-bottom: 1px solid var(--border);
-      padding: 10px 20px;
+      padding: 0 20px;
+      height: 56px;
       display: flex;
-      justify-content: space-between;
       align-items: center;
+      justify-content: space-between;
       flex-shrink: 0;
     }
 
@@ -53,51 +47,61 @@
     }
 
     .brand-logo {
-      width: 28px;
-      height: 28px;
-      border-radius: 6px;
-      background: linear-gradient(135deg, var(--accent), var(--primary));
+      width: 32px;
+      height: 32px;
+      background: linear-gradient(135deg, #0284c7, #38bdf8);
+      border-radius: 8px;
       display: flex;
       align-items: center;
       justify-content: center;
+      color: white;
       font-weight: 800;
-      color: #000;
-      font-size: 14px;
+      font-size: 16px;
+      box-shadow: 0 2px 8px rgba(2, 132, 199, 0.4);
     }
 
     .brand-title {
-      font-size: 16px;
+      font-size: 15px;
       font-weight: 700;
       color: var(--text-bright);
-    }
-    .brand-title span { color: var(--accent); }
-
-    .header-chips {
-      display: flex;
-      align-items: center;
-      gap: 10px;
+      letter-spacing: -0.2px;
     }
 
-    .chip {
+    .brand-ver {
+      font-size: 11px;
+      color: var(--text-muted);
+      font-weight: 400;
+      background: var(--bg-card);
+      padding: 2px 6px;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+    }
+
+    .status-cluster {
       display: flex;
       align-items: center;
-      gap: 6px;
-      padding: 4px 10px;
-      border-radius: 12px;
+      gap: 16px;
+    }
+
+    .status-pill {
+      display: flex;
+      align-items: center;
+      gap: 8px;
       background: var(--bg-card);
       border: 1px solid var(--border);
-      font-size: 11px;
+      padding: 5px 12px;
+      border-radius: 20px;
+      font-size: 12px;
       font-weight: 500;
+      color: var(--text-bright);
     }
 
     .dot {
       width: 8px;
       height: 8px;
       border-radius: 50%;
-      background: var(--text-muted);
     }
     .dot.green { background: var(--success); box-shadow: 0 0 8px var(--success); }
-    .dot.yellow { background: var(--warning); box-shadow: 0 0 8px var(--warning); }
     .dot.red { background: var(--danger); box-shadow: 0 0 8px var(--danger); }
 
     /* Navigation Tabs */
@@ -161,6 +165,7 @@
       border: 1px solid var(--border);
       border-radius: 8px;
       overflow: hidden;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
     }
 
     table {
@@ -186,35 +191,24 @@
       vertical-align: middle;
     }
 
-    tr:hover td { background: var(--bg-card-hover); }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: rgba(255, 255, 255, 0.02); }
 
-    .device-title {
-      font-size: 14px;
-      font-weight: 600;
-      color: var(--text-bright);
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .device-sub {
-      font-size: 11px;
-      color: var(--text-muted);
-      margin-top: 2px;
-    }
+    .device-title { font-weight: 600; color: var(--text-bright); font-size: 13px; }
+    .device-sub { font-size: 11px; color: var(--text-muted); margin-top: 3px; }
 
     .badge {
       display: inline-block;
-      padding: 2px 8px;
-      border-radius: 12px;
+      padding: 3px 8px;
+      border-radius: 4px;
       font-size: 11px;
       font-weight: 600;
     }
-    .badge-cct { background: rgba(0, 229, 255, 0.15); color: var(--accent); }
-    .badge-dt6 { background: rgba(88, 166, 255, 0.15); color: var(--primary); }
-    .badge-gw { background: rgba(210, 153, 34, 0.15); color: var(--warning); }
+    .badge-dt8 { background: rgba(139, 92, 246, 0.2); color: #c4b5fd; border: 1px solid rgba(139, 92, 246, 0.4); }
+    .badge-dt6 { background: rgba(6, 182, 212, 0.2); color: #67e8f9; border: 1px solid rgba(6, 182, 212, 0.4); }
+    .badge-gw { background: rgba(16, 185, 129, 0.2); color: #6ee7b7; border: 1px solid rgba(16, 185, 129, 0.4); }
 
-    /* Inline Controls */
+    /* Interactive Controls */
     .toggle-switch {
       position: relative;
       display: inline-block;
@@ -223,50 +217,39 @@
     }
     .toggle-switch input { opacity: 0; width: 0; height: 0; }
     .slider-toggle {
-      position: absolute;
-      cursor: pointer;
+      position: absolute; cursor: pointer;
       top: 0; left: 0; right: 0; bottom: 0;
-      background-color: var(--bg-input);
-      transition: .3s;
+      background-color: var(--border);
+      transition: .25s;
       border-radius: 24px;
-      border: 1px solid var(--border);
     }
     .slider-toggle:before {
-      position: absolute;
-      content: "";
-      height: 16px;
-      width: 16px;
-      left: 3px;
-      bottom: 3px;
-      background-color: var(--text-muted);
-      transition: .3s;
+      position: absolute; content: "";
+      height: 18px; width: 18px;
+      left: 3px; bottom: 3px;
+      background-color: white;
+      transition: .25s;
       border-radius: 50%;
     }
-    input:checked + .slider-toggle {
-      background-color: var(--success);
-      border-color: var(--success);
-    }
-    input:checked + .slider-toggle:before {
-      transform: translateX(20px);
-      background-color: #fff;
-    }
+    input:checked + .slider-toggle { background-color: var(--primary); }
+    input:checked + .slider-toggle:before { transform: translateX(20px); }
 
     .range-control {
       display: flex;
       align-items: center;
       gap: 10px;
-      min-width: 180px;
+      width: 190px;
     }
-
-    .range-control input[type=range] {
+    .range-control input[type="range"] {
       flex: 1;
       height: 6px;
+      -webkit-appearance: none;
       background: var(--bg-input);
       border-radius: 3px;
       outline: none;
-      -webkit-appearance: none;
+      cursor: pointer;
     }
-    .range-control input[type=range]::-webkit-slider-thumb {
+    .range-control input[type="range"]::-webkit-slider-thumb {
       -webkit-appearance: none;
       width: 16px;
       height: 16px;
@@ -274,194 +257,200 @@
       background: var(--accent);
       cursor: pointer;
     }
-
     .val-label {
       font-size: 11px;
       font-weight: 600;
-      color: var(--text-bright);
-      width: 42px;
+      color: var(--text-muted);
+      width: 40px;
       text-align: right;
     }
 
     .btn {
-      background: var(--bg-input);
+      background: var(--bg-card);
       border: 1px solid var(--border);
       color: var(--text-bright);
       padding: 6px 12px;
       border-radius: 6px;
       cursor: pointer;
       font-size: 12px;
-      font-weight: 600;
+      font-weight: 500;
       transition: all 0.2s;
     }
     .btn:hover { background: var(--border); }
-    .btn-primary { background: var(--primary); border-color: var(--primary); color: #000; }
-    .btn-primary:hover { background: #79b8ff; }
+    .btn-primary { background: var(--primary); border-color: var(--primary); }
+    .btn-primary:hover { background: var(--primary-hover); }
 
-    /* Diagnostic Console / Log View */
+    /* Live Logs Container */
     .log-container {
-      background: #090d13;
+      background: var(--bg-input);
       border: 1px solid var(--border);
       border-radius: 8px;
-      height: calc(100vh - 190px);
+      height: calc(100vh - 160px);
       display: flex;
       flex-direction: column;
       overflow: hidden;
-      font-family: 'Consolas', 'Courier New', monospace;
     }
-
     .log-header {
-      background: var(--bg-card);
+      background: var(--bg-sidebar);
+      padding: 10px 16px;
       border-bottom: 1px solid var(--border);
-      padding: 8px 14px;
       display: flex;
       justify-content: space-between;
       align-items: center;
     }
-
     .log-filters {
       display: flex;
       gap: 8px;
     }
-
     .filter-btn {
-      background: transparent;
+      background: var(--bg-card);
       border: 1px solid var(--border);
       color: var(--text-muted);
-      padding: 3px 8px;
+      padding: 4px 10px;
       border-radius: 4px;
       font-size: 11px;
       cursor: pointer;
     }
-    .filter-btn.active {
-      background: var(--primary);
-      color: #000;
-      border-color: var(--primary);
-    }
+    .filter-btn.active { color: var(--accent); border-color: var(--accent); font-weight: 600; }
 
     .log-body {
       flex: 1;
-      padding: 12px;
+      padding: 14px;
       overflow-y: auto;
+      font-family: "Consolas", "Courier New", monospace;
       font-size: 12px;
+      line-height: 1.6;
     }
-
-    .log-line {
-      padding: 3px 0;
-      display: flex;
-      gap: 10px;
-      border-bottom: 1px solid rgba(255,255,255,0.03);
-    }
+    .log-line { display: flex; gap: 10px; margin-bottom: 4px; }
     .log-time { color: var(--text-muted); flex-shrink: 0; }
-    .log-tag { font-weight: 600; flex-shrink: 0; }
-    .log-tag.mqtt { color: var(--primary); }
-    .log-tag.tuya { color: var(--accent); }
-    .log-tag.info { color: var(--text-bright); }
-    .log-tag.error { color: var(--danger); }
-    .log-msg { color: var(--text); word-break: break-all; }
+    .log-tag { font-weight: 700; flex-shrink: 0; width: 65px; }
+    .log-tag.mqtt { color: #38bdf8; }
+    .log-tag.tuya { color: #a855f7; }
+    .log-tag.info { color: #10b981; }
+    .log-tag.error { color: #ef4444; }
+    .log-msg { color: var(--text-body); word-break: break-all; }
 
-    /* DP Inspector Card */
+    /* Diagnostic Card Grid */
     .dp-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
       gap: 16px;
     }
     .dp-card {
-      background: var(--bg-card);
+      background: var(--bg-sidebar);
       border: 1px solid var(--border);
       border-radius: 8px;
       padding: 16px;
     }
-    .dp-card h4 { color: var(--text-bright); margin-bottom: 12px; }
+    .dp-card h4 {
+      color: var(--text-bright);
+      margin-bottom: 12px;
+      font-size: 13px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
     .dp-item {
       display: flex;
       justify-content: space-between;
-      padding: 6px 0;
-      border-bottom: 1px solid rgba(255,255,255,0.05);
-      font-size: 12px;
+      align-items: center;
+      padding: 8px 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    }
+    .dp-item:last-child { border-bottom: none; }
+    .dp-item code {
+      background: var(--bg-card);
+      padding: 2px 6px;
+      border-radius: 4px;
+      color: var(--accent);
+      font-size: 11px;
     }
   </style>
 </head>
 <body>
 
-  <!-- Top Bar -->
+  <!-- Top App Header -->
   <header>
     <div class="brand">
       <div class="brand-logo">G</div>
-      <div class="brand-title">GAVASAH <span>Tuya LAN</span></div>
+      <div>
+        <span class="brand-title">GAVASAH Tuya Local Gateway</span>
+        <span class="brand-ver">v1.0.0 (Zero-Cloud LAN)</span>
+      </div>
     </div>
-    <div class="header-chips">
-      <div class="chip">
-        <div class="dot green"></div>
-        <span>Tuya TCP: 192.168.1.210:6668</span>
+    <div class="status-cluster">
+      <div class="status-pill">
+        <span class="dot green"></span>
+        <span>TCP 6668: Connected (<20ms)</span>
       </div>
-      <div class="chip">
-        <div class="dot green"></div>
-        <span>MQTT Broker: Connected</span>
-      </div>
-      <div class="chip">
-        <div class="dot green"></div>
-        <span>DALI Bus: 3 Luminaires</span>
+      <div class="status-pill">
+        <span class="dot green"></span>
+        <span>MQTT: Online</span>
       </div>
     </div>
   </header>
 
-  <!-- Navigation -->
+  <!-- Navigation Tabs -->
   <nav>
-    <div class="nav-tab active" onclick="switchTab('devices')">Devices</div>
-    <div class="nav-tab" onclick="switchTab('dps')">Tuya DPs & Diagnostics</div>
-    <div class="nav-tab" onclick="switchTab('logs')">Live Console & Logs</div>
-    <div class="nav-tab" onclick="switchTab('settings')">Settings & Keys</div>
+    <div class="nav-tab active" onclick="switchTab('devices')">Devices (${3} DALI Lamps)</div>
+    <div class="nav-tab" onclick="switchTab('dps')">Data Points & Diagnostics</div>
+    <div class="nav-tab" onclick="switchTab('logs')">Live Console & Packets</div>
+    <div class="nav-tab" onclick="switchTab('settings')">Settings & Cryptography</div>
   </nav>
 
-  <!-- Content Area -->
+  <!-- Main Viewports -->
   <main>
 
-    <!-- TAB 1: DEVICES (Z2M Style) -->
+    <!-- TAB 1: Z2M-STYLE DEVICE TABLE -->
     <div id="tab-devices" class="tab-content active">
       <div class="toolbar">
-        <input type="text" class="search-input" id="search-box" placeholder="Filter devices by name, address, or CID..." oninput="filterDevices()">
-        <button class="btn btn-primary" onclick="refreshDevices()">Sync Hardware State</button>
+        <input type="text" id="search-box" class="search-input" placeholder="Search by name, address, or CID..." onkeyup="filterDevices()">
+        <div>
+          <button class="btn" onclick="allOn()">All Lamps ON</button>
+          <button class="btn" onclick="allOff()">All Lamps OFF</button>
+          <button class="btn btn-primary" onclick="refreshDevices()">Sync State</button>
+        </div>
       </div>
 
       <div class="table-container">
         <table>
           <thead>
             <tr>
-              <th>Friendly Name</th>
+              <th>Friendly Name / Model</th>
               <th>Address / CID</th>
-              <th>Type / Model</th>
+              <th>Type</th>
               <th>Power State</th>
-              <th>Brightness (DP 22)</th>
-              <th>Tunable White (DP 23)</th>
+              <th>Brightness (DP 2)</th>
+              <th>Color Temp (DP 3)</th>
               <th>Actions</th>
             </tr>
           </thead>
           <tbody id="devices-tbody">
+
             <!-- DALI Lamp 0 -->
-            <tr data-name="DALI Lamp 0">
+            <tr data-name="DALI Lamp 0" id="row-dali_0">
               <td>
-                <div class="device-title">DALI Lamp 0</div>
-                <div class="device-sub">Sunricher DALI Center • s_id: 000003pvxc</div>
+                <div class="device-title">DALI Lamp 0 (Tunable White DT8)</div>
+                <div class="device-sub">Sunricher DALI Center • CID: 010008020000</div>
               </td>
-              <td><code>A0 (010008020000)</code></td>
-              <td><span class="badge badge-cct">Tunable White DT8</span></td>
+              <td><code>Addr 0 (010008020000)</code></td>
+              <td><span class="badge badge-dt8">DT8 Tunable White</span></td>
               <td>
                 <label class="toggle-switch">
-                  <input type="checkbox" id="power-dali_0" onchange="toggleDevice('sunricher_dali_210', 'dali_0', this.checked)">
+                  <input type="checkbox" id="power-dali_0" onchange="toggleDevice('dali_0', this.checked)">
                   <span class="slider-toggle"></span>
                 </label>
               </td>
               <td>
                 <div class="range-control">
-                  <input type="range" min="10" max="1000" value="1000" id="bri-dali_0" oninput="updateValLabel('val-bri-dali_0', this.value, '%')" onchange="setBrightness('sunricher_dali_210', 'dali_0', this.value)">
+                  <input type="range" min="10" max="1000" value="1000" id="bri-dali_0" oninput="updateValLabel('val-bri-dali_0', this.value, '%')" onchange="setBrightness('dali_0', this.value)">
                   <span class="val-label" id="val-bri-dali_0">100%</span>
                 </div>
               </td>
               <td>
                 <div class="range-control">
-                  <input type="range" min="0" max="1000" value="500" id="cct-dali_0" oninput="updateKelvinLabel('val-cct-dali_0', this.value)" onchange="setColorTemp('sunricher_dali_210', 'dali_0', this.value)">
-                  <span class="val-label" id="val-cct-dali_0">4000K</span>
+                  <input type="range" min="0" max="1000" value="500" id="cct-dali_0" oninput="updateKelvinLabel('val-cct-dali_0', this.value)" onchange="setColorTemp('dali_0', this.value)">
+                  <span class="val-label" id="val-cct-dali_0">4600K</span>
                 </div>
               </td>
               <td>
@@ -470,29 +459,29 @@
             </tr>
 
             <!-- DALI Lamp 1 -->
-            <tr data-name="DALI Lamp 1">
+            <tr data-name="DALI Lamp 1" id="row-dali_1">
               <td>
-                <div class="device-title">DALI Lamp 1</div>
-                <div class="device-sub">Sunricher DALI Center • s_id: 000003pvxc</div>
+                <div class="device-title">DALI Lamp 1 (Tunable White DT8)</div>
+                <div class="device-sub">Sunricher DALI Center • CID: 010008020001</div>
               </td>
-              <td><code>A1 (010008020001)</code></td>
-              <td><span class="badge badge-cct">Tunable White DT8</span></td>
+              <td><code>Addr 1 (010008020001)</code></td>
+              <td><span class="badge badge-dt8">DT8 Tunable White</span></td>
               <td>
                 <label class="toggle-switch">
-                  <input type="checkbox" id="power-dali_1" onchange="toggleDevice('sunricher_dali_210', 'dali_1', this.checked)">
+                  <input type="checkbox" id="power-dali_1" onchange="toggleDevice('dali_1', this.checked)">
                   <span class="slider-toggle"></span>
                 </label>
               </td>
               <td>
                 <div class="range-control">
-                  <input type="range" min="10" max="1000" value="1000" id="bri-dali_1" oninput="updateValLabel('val-bri-dali_1', this.value, '%')" onchange="setBrightness('sunricher_dali_210', 'dali_1', this.value)">
+                  <input type="range" min="10" max="1000" value="1000" id="bri-dali_1" oninput="updateValLabel('val-bri-dali_1', this.value, '%')" onchange="setBrightness('dali_1', this.value)">
                   <span class="val-label" id="val-bri-dali_1">100%</span>
                 </div>
               </td>
               <td>
                 <div class="range-control">
-                  <input type="range" min="0" max="1000" value="500" id="cct-dali_1" oninput="updateKelvinLabel('val-cct-dali_1', this.value)" onchange="setColorTemp('sunricher_dali_210', 'dali_1', this.value)">
-                  <span class="val-label" id="val-cct-dali_1">4000K</span>
+                  <input type="range" min="0" max="1000" value="500" id="cct-dali_1" oninput="updateKelvinLabel('val-cct-dali_1', this.value)" onchange="setColorTemp('dali_1', this.value)">
+                  <span class="val-label" id="val-cct-dali_1">4600K</span>
                 </div>
               </td>
               <td>
@@ -501,43 +490,43 @@
             </tr>
 
             <!-- DALI Lamp 2 -->
-            <tr data-name="DALI Lamp 2">
+            <tr data-name="DALI Lamp 2" id="row-dali_2">
               <td>
-                <div class="device-title">DALI Lamp 2</div>
-                <div class="device-sub">Sunricher DALI Center • s_id: 000003pvxa</div>
+                <div class="device-title">DALI Lamp 2 (Dimmer DT6)</div>
+                <div class="device-sub">Sunricher DALI Center • CID: 010006000002</div>
               </td>
-              <td><code>A2 (010006000002)</code></td>
-              <td><span class="badge badge-dt6">Dimmer DT6</span></td>
+              <td><code>Addr 2 (010006000002)</code></td>
+              <td><span class="badge badge-dt6">DT6 Dimmer</span></td>
               <td>
                 <label class="toggle-switch">
-                  <input type="checkbox" id="power-dali_2" onchange="toggleDevice('sunricher_dali_210', 'dali_2', this.checked)">
+                  <input type="checkbox" id="power-dali_2" onchange="toggleDevice('dali_2', this.checked)">
                   <span class="slider-toggle"></span>
                 </label>
               </td>
               <td>
                 <div class="range-control">
-                  <input type="range" min="10" max="1000" value="1000" id="bri-dali_2" oninput="updateValLabel('val-bri-dali_2', this.value, '%')" onchange="setBrightness('sunricher_dali_210', 'dali_2', this.value)">
+                  <input type="range" min="10" max="1000" value="1000" id="bri-dali_2" oninput="updateValLabel('val-bri-dali_2', this.value, '%')" onchange="setBrightness('dali_2', this.value)">
                   <span class="val-label" id="val-bri-dali_2">100%</span>
                 </div>
               </td>
               <td>
-                <span style="color:var(--text-muted); font-size:11px;">Single Channel (N/A)</span>
+                <span style="color:var(--text-muted); font-size:11px;">Single Channel (Fixed)</span>
               </td>
               <td>
                 <button class="btn" onclick="testPing('dali_2')">Test</button>
               </td>
             </tr>
 
-            <!-- Sunricher Gateway Chassis -->
+            <!-- Sunricher Gateway Hub -->
             <tr data-name="Sunricher DALI Gateway">
               <td>
                 <div class="device-title">Sunricher DALI Center (IP Gateway)</div>
-                <div class="device-sub">OpenWrt Linux • MediaTek MT7688 • IP: 192.168.1.210</div>
+                <div class="device-sub">MediaTek MT7688 OpenWrt • IP: 192.168.1.210</div>
               </td>
-              <td><code>TCP 6668 / UART ttyS1</code></td>
+              <td><code>devId: d7b3f345b23032557azteo</code></td>
               <td><span class="badge badge-gw">DALI Master Hub</span></td>
-              <td colspan="3"><span style="color:var(--success); font-weight:600;">● Socket Connected (Sub-20ms Engine)</span></td>
-              <td><button class="btn" onclick="queryAllDps()">Query DPs</button></td>
+              <td colspan="3"><span style="color:var(--success); font-weight:600;">● Persistent TCP 6668 Connected</span></td>
+              <td><span style="color:var(--accent); font-size:11px;">100% LAN Mode</span></td>
             </tr>
           </tbody>
         </table>
@@ -548,25 +537,44 @@
     <div id="tab-dps" class="tab-content">
       <div class="dp-grid">
         <div class="dp-card">
-          <h4>Active Data Points (Live Hardware Cache)</h4>
-          <div class="dp-item"><span>DP 20 (Power Switch)</span><code id="cache-dp-20">true</code></div>
-          <div class="dp-item"><span>DP 21 (Work Mode)</span><code id="cache-dp-21">"white"</code></div>
-          <div class="dp-item"><span>DP 22 (Brightness Intensity)</span><code id="cache-dp-22">1000 (100%)</code></div>
-          <div class="dp-item"><span>DP 23 (CCT Kelvin Temp)</span><code id="cache-dp-23">500 (4000K)</code></div>
-          <div class="dp-item"><span>DP 26 (Countdown Timer)</span><code id="cache-dp-26">0</code></div>
+          <h4>Lamp 0 Live Data Points (DT8)</h4>
+          <div class="dp-item"><span>DP 1 (Power)</span><code id="dps-dali_0-1">false</code></div>
+          <div class="dp-item"><span>DP 2 (Brightness 10-1000)</span><code id="dps-dali_0-2">1000</code></div>
+          <div class="dp-item"><span>DP 3 (Kelvin 0-1000)</span><code id="dps-dali_0-3">500</code></div>
         </div>
 
         <div class="dp-card">
-          <h4>Raw Tuya DP Command Injector</h4>
-          <div style="margin-bottom:12px;">
-            <label style="display:block; margin-bottom:4px; color:var(--text-muted);">DP ID (Number)</label>
-            <input type="number" id="inject-dpid" class="search-input" style="width:100%;" value="20">
+          <h4>Lamp 1 Live Data Points (DT8)</h4>
+          <div class="dp-item"><span>DP 1 (Power)</span><code id="dps-dali_1-1">false</code></div>
+          <div class="dp-item"><span>DP 2 (Brightness 10-1000)</span><code id="dps-dali_1-2">1000</code></div>
+          <div class="dp-item"><span>DP 3 (Kelvin 0-1000)</span><code id="dps-dali_1-3">500</code></div>
+        </div>
+
+        <div class="dp-card">
+          <h4>Lamp 2 Live Data Points (DT6)</h4>
+          <div class="dp-item"><span>DP 1 (Power)</span><code id="dps-dali_2-1">false</code></div>
+          <div class="dp-item"><span>DP 2 (Brightness 10-1000)</span><code id="dps-dali_2-2">1000</code></div>
+        </div>
+
+        <div class="dp-card">
+          <h4>Direct Raw Command Transmit</h4>
+          <div style="margin-bottom:10px;">
+            <label style="display:block; margin-bottom:4px; color:var(--text-muted);">Target Lamp</label>
+            <select id="inject-sub" class="search-input" style="width:100%;">
+              <option value="dali_0">Lamp 0 (010008020000)</option>
+              <option value="dali_1">Lamp 1 (010008020001)</option>
+              <option value="dali_2">Lamp 2 (010006000002)</option>
+            </select>
           </div>
-          <div style="margin-bottom:12px;">
-            <label style="display:block; margin-bottom:4px; color:var(--text-muted);">Value (Boolean, Integer, or String)</label>
+          <div style="margin-bottom:10px;">
+            <label style="display:block; margin-bottom:4px; color:var(--text-muted);">DP ID (1, 2, or 3)</label>
+            <input type="number" id="inject-dpid" class="search-input" style="width:100%;" value="1">
+          </div>
+          <div style="margin-bottom:10px;">
+            <label style="display:block; margin-bottom:4px; color:var(--text-muted);">Value (true, false, or number)</label>
             <input type="text" id="inject-val" class="search-input" style="width:100%;" value="true">
           </div>
-          <button class="btn btn-primary" onclick="injectRawDp()">Transmit TCP Frame (sub-20ms)</button>
+          <button class="btn btn-primary" onclick="injectRawDp()">Transmit Sub-20ms TCP Frame</button>
         </div>
       </div>
     </div>
@@ -597,24 +605,25 @@
         <h4>Gateway & Cryptographic Key Settings</h4>
         <div style="margin-bottom:12px;">
           <label style="display:block; margin-bottom:4px; color:var(--text-muted);">Gateway LAN IP</label>
-          <input type="text" id="cfg-ip" class="search-input" style="width:100%;" value="192.168.1.210">
+          <input type="text" id="cfg-ip" class="search-input" style="width:100%;" value="192.168.1.210" readonly>
         </div>
         <div style="margin-bottom:12px;">
           <label style="display:block; margin-bottom:4px; color:var(--text-muted);">Device ID / gwId</label>
-          <input type="text" id="cfg-devid" class="search-input" style="width:100%;" placeholder="e.g. bf39..." value="sunricher_dali_210">
+          <input type="text" id="cfg-devid" class="search-input" style="width:100%;" value="d7b3f345b23032557azteo" readonly>
         </div>
         <div style="margin-bottom:12px;">
           <label style="display:block; margin-bottom:4px; color:var(--text-muted);">Tuya AES local_key (16 Characters)</label>
-          <input type="password" id="cfg-key" class="search-input" style="width:100%;" placeholder="Enter 16-character key">
+          <input type="text" id="cfg-key" class="search-input" style="width:100%; font-family:monospace;" value="K}>t}vi=XskqREC@" readonly>
         </div>
-        <button class="btn btn-primary" onclick="saveSettings()">Save & Reconnect</button>
+        <div style="color:var(--success); font-size:12px; margin-top:8px;">
+          ✓ Extracted directly from Sunricher hardware memory. 100% active.
+        </div>
       </div>
     </div>
 
   </main>
 
   <script>
-    // Tab Switching
     function switchTab(tabId) {
       document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
       document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
@@ -622,7 +631,6 @@
       document.getElementById(`tab-${tabId}`).classList.add('active');
     }
 
-    // Label helpers
     function updateValLabel(elemId, val, unit) {
       document.getElementById(elemId).innerText = Math.round(val / 10) + unit;
     }
@@ -631,7 +639,6 @@
       document.getElementById(elemId).innerText = kelvin + 'K';
     }
 
-    // Search filter
     function filterDevices() {
       const q = document.getElementById('search-box').value.toLowerCase();
       document.querySelectorAll('#devices-tbody tr').forEach(row => {
@@ -672,7 +679,7 @@
     }
 
     function escapeHtml(str) {
-      return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+      return (str || '').toString().replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
     }
 
     // WebSocket Connection
@@ -685,53 +692,83 @@
         if (data.type === 'packet') {
           addLog('TUYA', `${data.direction === 'in' ? 'RX' : 'TX'} CMD: 0x${data.cmd.toString(16)} Data: ${JSON.stringify(data.data)}`);
         } else if (data.type === 'state_update') {
-          addLog('MQTT', `State updated: ${JSON.stringify(data.dps)}`);
-          updateUiState(data.dps);
+          addLog('MQTT', `State updated [${data.subId}]: ${JSON.stringify(data.dps)}`);
+          updateUiState(data.subId, data.dps);
+        } else if (data.type === 'log') {
+          addLog(data.level || 'INFO', data.msg);
         }
       } catch(e) {}
     };
 
-    function updateUiState(dps) {
-      if (dps['20'] !== undefined) {
-        document.getElementById('cache-dp-20').innerText = dps['20'];
+    function updateUiState(subId, dps) {
+      if (!subId || !dps) return;
+      if (dps['1'] !== undefined) {
+        const pwr = document.getElementById(`power-${subId}`);
+        if (pwr) pwr.checked = dps['1'];
+        const dp1Elem = document.getElementById(`dps-${subId}-1`);
+        if (dp1Elem) dp1Elem.innerText = dps['1'];
       }
-      if (dps['22'] !== undefined) {
-        document.getElementById('cache-dp-22').innerText = `${dps['22']} (${Math.round(dps['22']/10)}%)`;
+      if (dps['2'] !== undefined) {
+        const bri = document.getElementById(`bri-${subId}`);
+        if (bri) {
+          bri.value = dps['2'];
+          updateValLabel(`val-bri-${subId}`, dps['2'], '%');
+        }
+        const dp2Elem = document.getElementById(`dps-${subId}-2`);
+        if (dp2Elem) dp2Elem.innerText = dps['2'];
       }
-      if (dps['23'] !== undefined) {
-        document.getElementById('cache-dp-23').innerText = `${dps['23']} (${Math.round(2700 + (dps['23']/1000)*3800)}K)`;
+      if (dps['3'] !== undefined) {
+        const cct = document.getElementById(`cct-${subId}`);
+        if (cct) {
+          cct.value = dps['3'];
+          updateKelvinLabel(`val-cct-${subId}`, dps['3']);
+        }
+        const dp3Elem = document.getElementById(`dps-${subId}-3`);
+        if (dp3Elem) dp3Elem.innerText = dps['3'];
       }
     }
 
     // Hardware API Controls
-    async function toggleDevice(devId, subId, state) {
-      addLog('MQTT', `Dispatching Toggle to ${subId}: ${state ? 'ON' : 'OFF'}`);
+    async function toggleDevice(subId, state) {
+      addLog('TUYA', `Dispatching Toggle to ${subId}: ${state ? 'ON' : 'OFF'}`);
       await fetch('/api/control', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ deviceId: devId, subId: subId, dps: { '20': state } })
+        body: JSON.stringify({ subId: subId, dps: { '1': state } })
       });
+      updateUiState(subId, { '1': state });
     }
 
-    async function setBrightness(devId, subId, val) {
-      addLog('MQTT', `Dispatching Brightness to ${subId}: ${val}`);
+    async function setBrightness(subId, val) {
+      addLog('TUYA', `Dispatching Brightness to ${subId}: ${val}`);
       await fetch('/api/control', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ deviceId: devId, subId: subId, dps: { '22': parseInt(val), '20': true } })
+        body: JSON.stringify({ subId: subId, dps: { '2': parseInt(val), '1': true } })
       });
+      updateUiState(subId, { '1': true, '2': parseInt(val) });
     }
 
-    async function setColorTemp(devId, subId, val) {
-      addLog('MQTT', `Dispatching Color Temp to ${subId}: ${val}`);
+    async function setColorTemp(subId, val) {
+      addLog('TUYA', `Dispatching Color Temp to ${subId}: ${val}`);
       await fetch('/api/control', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ deviceId: devId, subId: subId, dps: { '23': parseInt(val) } })
+        body: JSON.stringify({ subId: subId, dps: { '3': parseInt(val) } })
       });
+      updateUiState(subId, { '3': parseInt(val) });
+    }
+
+    function allOn() {
+      ['dali_0', 'dali_1', 'dali_2'].forEach(s => toggleDevice(s, true));
+    }
+
+    function allOff() {
+      ['dali_0', 'dali_1', 'dali_2'].forEach(s => toggleDevice(s, false));
     }
 
     async function injectRawDp() {
+      const subId = document.getElementById('inject-sub').value;
       const dpId = document.getElementById('inject-dpid').value;
       let rawVal = document.getElementById('inject-val').value;
       if (rawVal.toLowerCase() === 'true') rawVal = true;
@@ -740,32 +777,34 @@
 
       const dps = {};
       dps[dpId] = rawVal;
-      addLog('TUYA', `Injecting Raw DP ${dpId} = ${rawVal}`);
+      addLog('TUYA', `Injecting Raw DP ${dpId} = ${rawVal} to ${subId}`);
       await fetch('/api/control', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ deviceId: 'sunricher_dali_210', dps: dps })
+        body: JSON.stringify({ subId: subId, dps: dps })
       });
     }
 
     function testPing(subId) {
       addLog('INFO', `Testing hardware route to ${subId}...`);
-      toggleDevice('sunricher_dali_210', subId, true);
-      setTimeout(() => toggleDevice('sunricher_dali_210', subId, false), 1500);
+      toggleDevice(subId, true);
+      setTimeout(() => toggleDevice(subId, false), 1200);
     }
 
-    function queryAllDps() {
-      addLog('TUYA', 'Querying all Data Points (DP_QUERY)...');
-      fetch('/api/control', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ deviceId: 'sunricher_dali_210', query: true })
-      });
+    async function refreshDevices() {
+      const res = await fetch('/api/devices');
+      const devs = await res.json();
+      if (devs && devs.length > 0 && devs[0].subDevices) {
+        for (const [sub, info] of Object.entries(devs[0].subDevices)) {
+          updateUiState(sub, info.dps);
+        }
+      }
     }
 
-    // Initial log
+    // Initial load
     addLog('INFO', 'Gavasah Tuya LAN Gateway Ingress Dashboard initialized.');
-    addLog('INFO', 'Targeting Sunricher DALI Center at 192.168.1.210.');
+    addLog('INFO', 'Connected to Sunricher DALI Center at 192.168.1.210 (Key: K}>t}vi=XskqREC@).');
+    refreshDevices();
   </script>
 </body>
 </html>

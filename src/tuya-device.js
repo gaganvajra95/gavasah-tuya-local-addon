@@ -7,14 +7,24 @@ const net = require('net');
 const EventEmitter = require('events');
 const { COMMANDS, encodeFrame, decodeFrame } = require('./tuya-cipher');
 
+// CID mappings for Sunricher DALI Center
+const SUB_DEVICE_MAP = {
+  'dali_0': '010008020000',
+  'dali_1': '010008020001',
+  'dali_2': '010006000002',
+  '010008020000': 'dali_0',
+  '010008020001': 'dali_1',
+  '010006000002': 'dali_2'
+};
+
 class TuyaDevice extends EventEmitter {
   constructor(options) {
     super();
-    this.id = options.id;                     // Device ID / gwId
+    this.id = options.id;                     // Device ID / gwId (e.g. d7b3f345b23032557azteo)
     this.name = options.name || options.id;
-    this.ip = options.ip;                     // LAN IP
+    this.ip = options.ip;                     // LAN IP (e.g. 192.168.1.210)
     this.port = options.port || 6668;         // Default Tuya TCP port
-    this.key = options.local_key || '0000000000000000'; // 16-character local_key
+    this.key = options.local_key || 'K}>t}vi=XskqREC@'; // 16-character local_key
     this.version = options.version || '3.3';  // Protocol version
     this.type = options.type || 'generic';    // Device category
 
@@ -23,7 +33,15 @@ class TuyaDevice extends EventEmitter {
     this.seq = 1;
     this.heartbeatTimer = null;
     this.reconnectTimer = null;
-    this.dps = {};                            // Current cached Data Points
+    
+    // Per sub-device Data Point cache
+    this.subDevices = {
+      'dali_0': { devId: '010008020000', dps: { '1': false, '2': 1000, '3': 500 } },
+      'dali_1': { devId: '010008020001', dps: { '1': false, '2': 1000, '3': 500 } },
+      'dali_2': { devId: '010006000002', dps: { '1': false, '2': 1000 } }
+    };
+
+    this.dps = {};                            // Gateway root DPs
     this.incomingBuffer = Buffer.alloc(0);
   }
 
@@ -38,7 +56,7 @@ class TuyaDevice extends EventEmitter {
     this.emit('log', `[${this.name}] Connecting to ${this.ip}:${this.port}...`);
     this.socket = new net.Socket();
     this.socket.setKeepAlive(true, 5000);
-    this.socket.setNoDelay(true); // Disable Nagle's algorithm for sub-millisecond dispatch
+    this.socket.setNoDelay(true); // Sub-millisecond dispatch
 
     this.socket.connect(this.port, this.ip, () => {
       this.isConnected = true;
@@ -47,9 +65,6 @@ class TuyaDevice extends EventEmitter {
 
       // Start periodic heartbeat
       this.startHeartbeat();
-
-      // Immediately query current Data Point states
-      this.query();
     });
 
     this.socket.on('data', (chunk) => {
@@ -77,7 +92,6 @@ class TuyaDevice extends EventEmitter {
     this.incomingBuffer = Buffer.concat([this.incomingBuffer, chunk]);
 
     while (this.incomingBuffer.length >= 24) {
-      // Find 0x000055aa prefix
       const prefixIndex = this.incomingBuffer.indexOf(Buffer.from([0x00, 0x00, 0x55, 0xaa]));
       if (prefixIndex === -1) {
         this.incomingBuffer = Buffer.alloc(0);
@@ -93,7 +107,6 @@ class TuyaDevice extends EventEmitter {
       const totalFrameLength = 16 + length;
 
       if (this.incomingBuffer.length < totalFrameLength) {
-        // Frame incomplete, await more bytes
         break;
       }
 
@@ -120,22 +133,23 @@ class TuyaDevice extends EventEmitter {
         timestamp: Date.now()
       });
 
-      // Handle unsolicited STATUS push (0x08) or DP_QUERY response (0x0a)
-      if (decoded.cmd === COMMANDS.STATUS || decoded.cmd === COMMANDS.DP_QUERY || decoded.cmd === COMMANDS.STATUS_NEW) {
-        if (decoded.payload && typeof decoded.payload === 'object') {
-          const receivedDps = decoded.payload.dps || {};
-          let hasChanges = false;
+      // Handle unsolicited STATUS push (0x08) or CONTROL ACK (0x07)
+      if (decoded.payload && typeof decoded.payload === 'object') {
+        const receivedDevId = decoded.payload.devId || decoded.payload.cid;
+        const receivedDps = decoded.payload.dps || {};
+        const subId = SUB_DEVICE_MAP[receivedDevId] || 'dali_0';
 
+        if (this.subDevices[subId]) {
+          let hasChanges = false;
           for (const [dpId, val] of Object.entries(receivedDps)) {
-            if (this.dps[dpId] !== val) {
-              this.dps[dpId] = val;
+            if (this.subDevices[subId].dps[dpId] !== val) {
+              this.subDevices[subId].dps[dpId] = val;
               hasChanges = true;
-              this.emit('dp-update', { id: this.id, dp: dpId, value: val });
+              this.emit('dp-update', { id: this.id, subId, dp: dpId, value: val });
             }
           }
-
           if (hasChanges) {
-            this.emit('status', { id: this.id, dps: { ...this.dps } });
+            this.emit('status', { id: this.id, subId, dps: { ...this.subDevices[subId].dps } });
           }
         }
       }
@@ -145,41 +159,21 @@ class TuyaDevice extends EventEmitter {
   }
 
   /**
-   * Query all Data Points from the device
-   */
-  query() {
-    if (!this.isConnected || !this.socket) return;
-    const payload = {
-      gwId: this.id,
-      devId: this.id,
-      t: Math.floor(Date.now() / 1000).toString(),
-      dps: {}
-    };
-
-    const frame = encodeFrame(COMMANDS.DP_QUERY, payload, this.key, this.version, this.seq++);
-    this.send(frame, COMMANDS.DP_QUERY, payload);
-  }
-
-  /**
    * Set one or multiple Data Points with instant sub-20ms send
    */
-  set(dps, subId = null) {
+  set(dps, subId = 'dali_0') {
     if (!this.isConnected || !this.socket) {
       throw new Error(`Device ${this.name} is not connected over LAN.`);
     }
 
-    // Mapping for Sunricher DALI Center sub-device CIDs
-    let targetDevId = this.id;
-    if (subId === 'dali_0') targetDevId = '010008020000';
-    else if (subId === 'dali_1') targetDevId = '010008020001';
-    else if (subId === 'dali_2') targetDevId = '010006000002';
-    else if (subId) targetDevId = subId;
+    // Determine target sub-device devId
+    let targetDevId = SUB_DEVICE_MAP[subId] || subId || this.id;
 
     const payload = {
       gwId: this.id,
       devId: targetDevId,
       uid: this.id,
-      t: Math.floor(Date.now() / 1000).toString(),
+      t: Math.floor(Date.now() / 1000),
       dps: dps
     };
 
@@ -187,11 +181,14 @@ class TuyaDevice extends EventEmitter {
     this.send(frame, COMMANDS.CONTROL, payload);
 
     // Optimistically update local cache and emit state
-    for (const [k, v] of Object.entries(dps)) {
-      this.dps[k] = v;
-      this.emit('dp-update', { id: this.id, subId: subId, dp: k, value: v });
+    const resolvedSub = SUB_DEVICE_MAP[targetDevId] || subId;
+    if (this.subDevices[resolvedSub]) {
+      for (const [k, v] of Object.entries(dps)) {
+        this.subDevices[resolvedSub].dps[k] = v;
+        this.emit('dp-update', { id: this.id, subId: resolvedSub, dp: k, value: v });
+      }
+      this.emit('status', { id: this.id, subId: resolvedSub, dps: { ...this.subDevices[resolvedSub].dps } });
     }
-    this.emit('status', { id: this.id, subId: subId, dps: { ...this.dps } });
   }
 
   /**
