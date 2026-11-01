@@ -43,7 +43,7 @@ if (!options.devices || options.devices.length === 0) {
       name: 'Sunricher DALI Center',
       ip: '192.168.1.210',
       port: 6668,
-      local_key: '0000000000000000', // Auto-synced or manually entered
+      local_key: '0000000000000000',
       version: '3.3',
       type: 'dali_gateway'
     }
@@ -62,7 +62,10 @@ const mqttBridge = new MqttBridge({
   mqtt_password: options.mqtt_password
 });
 
-mqttBridge.on('log', (msg) => console.log(msg));
+mqttBridge.on('log', (msg) => {
+  console.log(msg);
+  broadcastWs({ type: 'log', level: 'MQTT', msg });
+});
 mqttBridge.connect();
 
 // 2. Initialize Tuya Devices
@@ -72,7 +75,11 @@ options.devices.forEach((devConf) => {
   console.log(`[Device] Initializing device: ${devConf.name} (${devConf.ip}:${devConf.port || 6668})`);
   const device = new TuyaDevice(devConf);
 
-  device.on('log', (msg) => console.log(msg));
+  device.on('log', (msg) => {
+    console.log(msg);
+    broadcastWs({ type: 'log', level: 'TUYA', msg });
+  });
+
   mqttBridge.registerDevice(device);
   activeDevices.set(device.id, device);
 
@@ -82,7 +89,10 @@ options.devices.forEach((devConf) => {
 
 // 3. Initialize UDP Auto-Discovery
 const discovery = new TuyaDiscovery();
-discovery.on('log', (msg) => console.log(msg));
+discovery.on('log', (msg) => {
+  console.log(msg);
+  broadcastWs({ type: 'log', level: 'DISCOVERY', msg });
+});
 if (options.auto_discover_udp) {
   discovery.start();
 }
@@ -115,14 +125,19 @@ app.get('/api/discovery', (req, res) => {
 });
 
 app.post('/api/control', (req, res) => {
-  const { deviceId, dps } = req.body;
-  const device = activeDevices.get(deviceId);
+  const { deviceId, subId, dps, query } = req.body;
+  const targetId = deviceId || 'sunricher_dali_210';
+  const device = activeDevices.get(targetId);
   if (!device) {
     return res.status(404).json({ error: 'Device not found' });
   }
 
   try {
-    device.set(dps);
+    if (query) {
+      device.query();
+      return res.json({ success: true, queried: true });
+    }
+    device.set(dps, subId);
     res.json({ success: true, dps: device.dps });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -154,4 +169,3 @@ const PORT = process.env.PORT || 8099;
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`[Ingress] Web UI active on http://0.0.0.0:${PORT}`);
 });
-

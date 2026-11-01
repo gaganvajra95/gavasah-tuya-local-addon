@@ -14,7 +14,7 @@ class TuyaDevice extends EventEmitter {
     this.name = options.name || options.id;
     this.ip = options.ip;                     // LAN IP
     this.port = options.port || 6668;         // Default Tuya TCP port
-    this.key = options.local_key;             // 16-character local_key
+    this.key = options.local_key || '0000000000000000'; // 16-character local_key
     this.version = options.version || '3.3';  // Protocol version
     this.type = options.type || 'generic';    // Device category
 
@@ -163,14 +163,21 @@ class TuyaDevice extends EventEmitter {
   /**
    * Set one or multiple Data Points with instant sub-20ms send
    */
-  set(dps) {
+  set(dps, subId = null) {
     if (!this.isConnected || !this.socket) {
       throw new Error(`Device ${this.name} is not connected over LAN.`);
     }
 
+    // Mapping for Sunricher DALI Center sub-device CIDs
+    let targetDevId = this.id;
+    if (subId === 'dali_0') targetDevId = '010008020000';
+    else if (subId === 'dali_1') targetDevId = '010008020001';
+    else if (subId === 'dali_2') targetDevId = '010006000002';
+    else if (subId) targetDevId = subId;
+
     const payload = {
       gwId: this.id,
-      devId: this.id,
+      devId: targetDevId,
       uid: this.id,
       t: Math.floor(Date.now() / 1000).toString(),
       dps: dps
@@ -182,9 +189,9 @@ class TuyaDevice extends EventEmitter {
     // Optimistically update local cache and emit state
     for (const [k, v] of Object.entries(dps)) {
       this.dps[k] = v;
-      this.emit('dp-update', { id: this.id, dp: k, value: v });
+      this.emit('dp-update', { id: this.id, subId: subId, dp: k, value: v });
     }
-    this.emit('status', { id: this.id, dps: { ...this.dps } });
+    this.emit('status', { id: this.id, subId: subId, dps: { ...this.dps } });
   }
 
   /**
@@ -242,4 +249,3 @@ class TuyaDevice extends EventEmitter {
 }
 
 module.exports = TuyaDevice;
-

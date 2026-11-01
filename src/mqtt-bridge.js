@@ -97,6 +97,7 @@ class MqttBridge extends EventEmitter {
   publishAllDiscoveries() {
     this.devices.forEach((device) => {
       this.publishDiscovery(device);
+      this.publishAvailability(device, 'online');
     });
   }
 
@@ -237,8 +238,8 @@ class MqttBridge extends EventEmitter {
         dpsToSet['23'] = haMiredsToTuya(payload.color_temp);
       }
 
-      // Send to hardware via persistent TCP socket in sub-20ms
-      device.set(dpsToSet);
+      // Send to hardware via persistent TCP socket in sub-20ms with sub-device target
+      device.set(dpsToSet, subId);
     } catch (err) {
       this.emit('log', `[MQTT Bridge] Command dispatch failed: ${err.message}`);
     }
@@ -246,4 +247,3 @@ class MqttBridge extends EventEmitter {
 }
 
 module.exports = MqttBridge;
-

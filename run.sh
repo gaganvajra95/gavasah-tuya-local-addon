@@ -8,3 +8,4 @@ export OPTIONS_PATH="/data/options.json"
 
 cd /app
 exec node src/server.js
+
