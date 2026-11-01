@@ -277,6 +277,19 @@ app.post('/api/gateway/rescan', async (req, res) => {
   }
 });
 
+// Resolve Gateway IP by MAC Address (Manual Trigger & Override)
+app.post('/api/gateway/resolve-mac', async (req, res) => {
+  const { id } = req.body;
+  if (!id) return res.status(400).json({ error: 'Missing gateway id' });
+
+  try {
+    const result = await gatewayMgr.triggerManualMacScan(id);
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 const PORT = process.env.PORT || 8099;
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`[Ingress] Web UI active on http://0.0.0.0:${PORT}`);

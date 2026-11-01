@@ -1,6 +1,7 @@
 /**
  * GAVASAH Tuya LAN Gateway - Multi-Gateway & DHCP Resiliency Manager
- * Manages gateway instances, dynamic DHCP IP re-binding, automatic key extraction, and name sync
+ * Manages gateway instances, dynamic DHCP IP re-binding, automatic key extraction,
+ * and intelligent MAC address resolution with a 5-minute cooldown period.
  */
 
 const fs = require('fs');
@@ -12,6 +13,7 @@ const TuyaDevice = require('./tuya-device');
 const DATA_DIR = process.env.DATA_DIR || '/data';
 const GATEWAYS_FILE = path.join(DATA_DIR, 'gateways.json');
 const NAMES_FILE = path.join(DATA_DIR, 'custom_names.json');
+const COOLDOWN_MS = 5 * 60 * 1000; // 5 minutes cooldown between automated sweeps
 
 // Default initial gateway (Sunricher DALI Center)
 const DEFAULT_GATEWAY = {
@@ -33,8 +35,10 @@ const DEFAULT_GATEWAY = {
 class GatewayManager extends EventEmitter {
   constructor() {
     super();
-    this.gateways = new Map(); // id -> TuyaDevice
-    this.customNames = {};     // key: `${gwId}_${subId}` or gwId -> custom name
+    this.gateways = new Map();       // id -> TuyaDevice
+    this.customNames = {};           // key: `${gwId}_${subId}` or gwId -> custom name
+    this.scanCooldowns = new Map();  // gwId -> timestamp of last auto MAC scan
+    this.isScanning = false;
     this.initStorage();
   }
 
@@ -146,6 +150,11 @@ class GatewayManager extends EventEmitter {
       this.emit('gateway-updated', this.getGatewayInfo(device));
     });
 
+    // Handle offline event: trigger intelligent MAC recovery with 5-minute cooldown
+    device.on('disconnected', () => {
+      this.handleGatewayOffline(device);
+    });
+
     this.gateways.set(device.id, device);
 
     if (save) {
@@ -158,6 +167,160 @@ class GatewayManager extends EventEmitter {
   }
 
   /**
+   * Handle gateway offline: check cooldown and trigger automated MAC sweep
+   */
+  async handleGatewayOffline(device) {
+    if (!device.mac || device.mac === 'unknown') return;
+
+    const now = Date.now();
+    const lastScan = this.scanCooldowns.get(device.id) || 0;
+    const elapsed = now - lastScan;
+
+    if (elapsed < COOLDOWN_MS) {
+      const remainingSec = Math.ceil((COOLDOWN_MS - elapsed) / 1000);
+      this.emit('log', `[Gateway Manager] ${device.name} offline. MAC recovery is in cooldown (${remainingSec}s remaining).`);
+      return;
+    }
+
+    this.emit('log', `[Gateway Manager] ${device.name} disconnected. Initiating MAC address search (${device.mac})...`);
+    this.scanCooldowns.set(device.id, now);
+
+    try {
+      const newIp = await this.resolveIpByMac(device.mac, device.ip);
+      if (newIp && newIp !== device.ip) {
+        this.emit('log', `[Gateway Manager] 🎯 MAC Match Found! ${device.name} relocated from ${device.ip} to ${newIp}. Updating IP.`);
+        device.updateIp(newIp);
+        this.persistGateways();
+      } else {
+        this.emit('log', `[Gateway Manager] Subnet search complete. ${device.name} currently unreachable at MAC ${device.mac}. Next auto-check in 5 minutes.`);
+      }
+    } catch (err) {
+      this.emit('log', `[Gateway Manager] MAC search error: ${err.message}`);
+    }
+  }
+
+  /**
+   * Manually trigger MAC search from GUI, bypassing 5-minute cooldown
+   */
+  async triggerManualMacScan(gwId) {
+    const device = this.gateways.get(gwId);
+    if (!device) {
+      throw new Error(`Gateway ${gwId} not found`);
+    }
+
+    this.emit('log', `[Gateway Manager] Manual MAC search requested for ${device.name} (MAC: ${device.mac}). Bypassing cooldown.`);
+    this.scanCooldowns.set(device.id, Date.now()); // Reset cooldown
+
+    const oldIp = device.ip;
+    const foundIp = await this.resolveIpByMac(device.mac, oldIp);
+
+    if (foundIp) {
+      if (foundIp !== oldIp) {
+        device.updateIp(foundIp);
+        this.persistGateways();
+      } else {
+        // If same IP, trigger immediate reconnect attempt
+        device.connect();
+      }
+      return { success: true, oldIp, newIp: foundIp, changed: foundIp !== oldIp };
+    }
+
+    return { success: false, oldIp, message: `No active host found matching MAC ${device.mac}` };
+  }
+
+  /**
+   * Read Linux host ARP table (/proc/net/arp)
+   */
+  readArpTable() {
+    const map = {};
+    try {
+      if (fs.existsSync('/proc/net/arp')) {
+        const lines = fs.readFileSync('/proc/net/arp', 'utf8').split('\n');
+        for (let i = 1; i < lines.length; i++) {
+          const parts = lines[i].trim().split(/\s+/);
+          if (parts.length >= 4) {
+            const ip = parts[0];
+            const mac = parts[3].toLowerCase();
+            if (mac && mac !== '00:00:00:00:00:00' && mac.includes(':')) {
+              map[ip] = mac;
+            }
+          }
+        }
+      }
+    } catch (e) {}
+    return map;
+  }
+
+  /**
+   * Resolve an IP by matching MAC address across ARP cache and active subnet probes
+   */
+  async resolveIpByMac(targetMac, hintIp = '192.168.1.210') {
+    if (!targetMac) return null;
+    const cleanTarget = targetMac.toLowerCase().replace(/[:-]/g, '');
+
+    // 1. Check existing ARP table first (Instant)
+    const arp1 = this.readArpTable();
+    for (const [ip, mac] of Object.entries(arp1)) {
+      if (mac.replace(/[:-]/g, '') === cleanTarget) {
+        return ip;
+      }
+    }
+
+    // 2. Derive subnet from hint IP (e.g. 192.168.1)
+    const subnetParts = hintIp.split('.');
+    const subnetPrefix = subnetParts.length === 4 ? `${subnetParts[0]}.${subnetParts[1]}.${subnetParts[2]}` : '192.168.1';
+
+    // 3. Fast non-blocking subnet sweep across port 6668 and 23 to trigger kernel ARP requests
+    await this.sweepSubnetPorts(subnetPrefix, [6668, 23]);
+
+    // 4. Re-check ARP table after sweep
+    const arp2 = this.readArpTable();
+    for (const [ip, mac] of Object.entries(arp2)) {
+      if (mac.replace(/[:-]/g, '') === cleanTarget) {
+        return ip;
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * Fast concurrent TCP connect probe across /24 subnet (populates kernel ARP cache)
+   */
+  async sweepSubnetPorts(subnetPrefix, ports = [6668, 23]) {
+    const ips = [];
+    for (let i = 1; i <= 254; i++) {
+      ips.push(`${subnetPrefix}.${i}`);
+    }
+
+    const batchSize = 35;
+    for (let b = 0; b < ips.length; b += batchSize) {
+      const batch = ips.slice(b, b + batchSize);
+      await Promise.all(
+        batch.map((ip) => {
+          return new Promise((resolve) => {
+            const socket = new net.Socket();
+            socket.setTimeout(120); // Fast 120ms probe
+            socket.on('connect', () => {
+              socket.destroy();
+              resolve(ip);
+            });
+            socket.on('timeout', () => {
+              socket.destroy();
+              resolve(null);
+            });
+            socket.on('error', () => {
+              socket.destroy();
+              resolve(null);
+            });
+            socket.connect(ports[0], ip);
+          });
+        })
+      );
+    }
+  }
+
+  /**
    * Remove a gateway
    */
   removeGateway(id) {
@@ -165,6 +328,7 @@ class GatewayManager extends EventEmitter {
       const dev = this.gateways.get(id);
       dev.destroy();
       this.gateways.delete(id);
+      this.scanCooldowns.delete(id);
       this.persistGateways();
       this.emit('gateway-removed', id);
       return true;
@@ -247,11 +411,9 @@ class GatewayManager extends EventEmitter {
   }
 
   parseRecoveredOutput(ip, raw) {
-    // 1. MAC match
     const macMatch = raw.match(/([0-9a-fA-F]{2}(?::[0-9a-fA-F]{2}){5})/);
     const mac = macMatch ? macMatch[1].toLowerCase() : '00:0c:43:e1:76:29';
 
-    // 2. Default verified parameters for Sunricher DALI Center
     return {
       id: 'd7b3f345b23032557azteo',
       name: 'Sunricher DALI Center',
@@ -270,6 +432,10 @@ class GatewayManager extends EventEmitter {
   }
 
   getGatewayInfo(g) {
+    const now = Date.now();
+    const lastScan = this.scanCooldowns.get(g.id) || 0;
+    const cooldownRemaining = Math.max(0, Math.ceil((COOLDOWN_MS - (now - lastScan)) / 1000));
+
     return {
       id: g.id,
       name: this.customNames[g.id] || g.name,
@@ -281,6 +447,7 @@ class GatewayManager extends EventEmitter {
       connected: g.isConnected,
       latency: g.pingLatency,
       subDeviceCount: Object.keys(g.subDevices || {}).length,
+      cooldownRemaining: cooldownRemaining,
       subDevices: g.subDevices
     };
   }
@@ -305,6 +472,7 @@ class GatewayManager extends EventEmitter {
           devId: info.devId,
           name: devName,
           type: info.type || 'dimmer',
+          lastAction: info.lastAction || null,
           dps: info.dps || {}
         });
       });

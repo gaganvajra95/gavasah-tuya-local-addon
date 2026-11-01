@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.1.1] - 2026-11-02
+### Added
+- **Intelligent MAC Address Recovery on Gateway Disconnect**: When any gateway drops offline, the add-on automatically checks the Linux ARP table and scans the local subnet to match the hardware MAC address (`00:0c:43:e1:76:29`), locating the gateway's new dynamic DHCP IP and re-establishing communication automatically.
+- **5-Minute Anti-Overload Cooldown**: Enforces a strict 5-minute cooldown timer between automated network ARP sweeps per gateway to protect the host network and gateway CPU from broadcast storms.
+- **Manual MAC Refresh in GUI**: Added **"🔄 Refresh IP (MAC)"** action in the Gateways tab to allow instant on-demand MAC resolution, bypassing the 5-minute cooldown.
+- **Live Cooldown Status Badge**: Added real-time countdown display in the Gateways inventory table indicating remaining cooldown time.
+
+---
+
 ## [1.1.0] - 2026-11-02
 ### Added
 - **Multi-Gateway Architecture (`GatewayManager`)**: Full concurrent multi-gateway support for multiple Sunricher DALI Centers, Tuya Zigbee Coordinators, and Tuya Wi-Fi bridges.

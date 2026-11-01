@@ -712,15 +712,23 @@
 
       gatewaysData.forEach((gw) => {
         const tr = document.createElement('tr');
+        const cooldownBadge = gw.cooldownRemaining > 0 
+          ? `<span class="gw-pill" style="color:#f59e0b; border-color:rgba(245,158,11,0.4);">⏳ Cooldown (${Math.floor(gw.cooldownRemaining/60)}m ${gw.cooldownRemaining%60}s)</span>`
+          : `<span class="gw-pill" style="color:#10b981; border-color:rgba(16,185,129,0.4);">Ready</span>`;
+
         tr.innerHTML = `
           <td><strong>${escapeHtml(gw.name)}</strong></td>
           <td><span class="gw-pill">${gw.id}</span></td>
           <td><span style="color:#60a5fa; font-family:var(--font-mono);">${gw.ip}:${gw.port}</span></td>
-          <td><span style="font-family:var(--font-mono);">${gw.mac || 'N/A'}</span></td>
+          <td>
+            <div style="font-family:var(--font-mono); font-size:0.85rem;">${gw.mac || 'N/A'}</div>
+            <div style="margin-top:4px;">${cooldownBadge}</div>
+          </td>
           <td>${escapeHtml(gw.type)}</td>
           <td><span class="indicator ${gw.connected ? '' : 'offline'}"></span> ${gw.connected ? 'Connected' : 'Offline'}</td>
           <td>${gw.subDeviceCount || 0}</td>
           <td>
+            <button class="btn btn-secondary btn-sm" id="btn-scan-${gw.id}" onclick="scanGatewayMac('${gw.id}')">🔄 Refresh IP (MAC)</button>
             <button class="btn btn-secondary btn-sm" onclick="promptRename('gateway', '${gw.id}', null, '${escapeHtml(gw.name)}')">Rename</button>
             <button class="btn btn-secondary btn-sm" onclick="rescanGateway('${gw.id}')">Rescan</button>
             <button class="btn btn-danger btn-sm" onclick="deleteGateway('${gw.id}')">Delete</button>
@@ -728,6 +736,42 @@
         `;
         tbody.appendChild(tr);
       });
+    }
+
+    async function scanGatewayMac(id) {
+      const btn = document.getElementById(`btn-scan-${id}`);
+      const origText = btn ? btn.innerHTML : '';
+      if (btn) {
+        btn.innerHTML = '🔄 Scanning Subnet...';
+        btn.disabled = true;
+      }
+
+      addLog('INFO', `Triggering manual MAC address resolution for gateway ${id}...`);
+      try {
+        const res = await fetch(`${basePath}api/gateway/resolve-mac`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id })
+        });
+        const result = await res.json();
+
+        if (result.success) {
+          addLog('INFO', `🎯 Resolution Complete: Gateway located at ${result.newIp} (was ${result.oldIp}). Socket reconnected.`);
+          alert(`Gateway located successfully!\nIP: ${result.newIp}${result.changed ? ' (Updated from ' + result.oldIp + ')' : ' (Confirmed online)'}`);
+        } else {
+          addLog('WARN', `MAC scan finished: ${result.message || 'Host matching MAC not found on local subnet.'}`);
+          alert(`MAC Resolution: ${result.message || 'No active host found matching this MAC on the local subnet.'}`);
+        }
+      } catch (e) {
+        addLog('ERROR', `MAC scan request failed: ${e.message}`);
+        alert(`Scan failed: ${e.message}`);
+      } finally {
+        if (btn) {
+          btn.innerHTML = origText;
+          btn.disabled = false;
+        }
+        refreshData();
+      }
     }
 
     function renderAllDevicesGrid() {
