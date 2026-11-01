@@ -25,12 +25,12 @@ class TuyaDevice extends EventEmitter {
     this.id = options.id;                     // Device ID / gwId (e.g. d7b3f345b23032557azteo)
     this.name = options.name || options.id;
     this.ip = options.ip;                     // Dynamic LAN IP
-    this.mac = options.mac || '00:0c:43:e1:76:29'; // Hardware MAC address
+    this.mac = options.mac || null;           // Hardware MAC address (resolved dynamically)
     this.port = options.port || 6668;         // Default Tuya TCP port
     this.key = options.local_key || 'K}>t}vi=XskqREC@'; // 16-character local_key
     this.version = options.version || '3.3';  // Protocol version
-    this.type = options.type || 'dali_gateway'; // Hardware category / type
-    this.category = options.category || (options.type === 'dali_gateway' || options.type === 'zigbee_gateway' || options.type === 'gateway' ? 'gateway' : 'wifi_device');
+    this.type = options.type || (options.category === 'wifi_device' ? 'switch' : 'generic_gateway'); // Hardware type
+    this.category = options.category || (options.type === 'dali_gateway' || options.type === 'zigbee_gateway' || options.type === 'gateway' || options.type === 'generic_gateway' ? 'gateway' : 'wifi_device');
     this.isGateway = (this.category === 'gateway');
 
     this.socket = null;
@@ -42,7 +42,8 @@ class TuyaDevice extends EventEmitter {
     this.reconnectTimer = null;
 
     // Per sub-device Data Point cache for gateways
-    this.subDevices = options.subDevices || (this.isGateway ? {
+    // Only Sunricher DALI Center has pre-seeded DALI lamp subdevices; Zigbee and generic gateways start clean
+    this.subDevices = options.subDevices || (this.type === 'dali_gateway' ? {
       'dali_0': { devId: '010008020000', name: 'DALI Lamp 0', type: 'light_cct', dps: { '20': false, '22': 1000, '23': 500 } },
       'dali_1': { devId: '010008020001', name: 'DALI Lamp 1', type: 'light_cct', dps: { '20': false, '22': 1000, '23': 500 } },
       'dali_2': { devId: '010006000002', name: 'DALI Lamp 2', type: 'dimmer', dps: { '20': false, '22': 1000 } }

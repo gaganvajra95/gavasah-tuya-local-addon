@@ -199,6 +199,7 @@
       text-transform: uppercase;
     }
     .badge-primary { background: rgba(59, 130, 246, 0.15); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.3); }
+    .badge-purple { background: rgba(168, 85, 247, 0.15); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.3); }
     .badge-accent { background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); }
     .badge-warning { background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.3); }
     .badge-danger { background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3); }
@@ -835,8 +836,12 @@
             <span>${gw.ip}</span>
             <span class="badge badge-primary" style="margin-left:6px;">DHCP Dynamic</span>
           </td>
-          <td style="font-family:var(--font-mono); font-size:0.8rem;">${gw.mac}</td>
-          <td>${escapeHtml(gw.type)}</td>
+          <td style="font-family:var(--font-mono); font-size:0.8rem; color:#60a5fa;"><strong>${gw.mac || 'Resolving...'}</strong></td>
+          <td>
+            <span class="badge ${gw.type === 'dali_gateway' ? 'badge-purple' : (gw.type === 'zigbee_gateway' ? 'badge-primary' : 'badge-warning')}">
+              ${gw.type === 'dali_gateway' ? 'DALI GATEWAY' : (gw.type === 'zigbee_gateway' ? 'ZIGBEE GATEWAY' : escapeHtml(gw.type).toUpperCase())}
+            </span>
+          </td>
           <td>
             <span class="badge ${gw.connected ? 'badge-accent' : 'badge-danger'}">
               ${gw.connected ? 'Online (' + gw.latency + 'ms)' : 'Offline'}
@@ -845,12 +850,44 @@
           <td>${gw.subDeviceCount || 0} Endpoints</td>
           <td>
             <div style="display:flex; gap:6px;">
+              <button class="btn btn-secondary btn-sm" onclick="promptEditGateway('${gw.id}', '${escapeHtml(gw.name)}', '${gw.type}', '${gw.mac || ''}')">⚙️ Edit</button>
               <button class="btn btn-secondary btn-sm" onclick="scanGatewayMac('${gw.id}')">🔄 Refresh IP (MAC)</button>
               <button class="btn btn-danger btn-sm" onclick="deleteGateway('${gw.id}')">Delete</button>
             </div>
           </td>
         </tr>
       `).join('');
+    }
+
+    async function promptEditGateway(gwId, currentName, currentType, currentMac) {
+      const newName = prompt('Gateway Friendly Name:', currentName);
+      if (newName === null) return;
+      const newType = prompt('Gateway Hardware Type (dali_gateway or zigbee_gateway):', currentType);
+      if (newType === null) return;
+      const newMac = prompt('Gateway Hardware MAC Address:', currentMac);
+      if (newMac === null) return;
+
+      try {
+        const res = await fetch('/api/gateway/update', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id: gwId,
+            name: newName.trim(),
+            type: newType.trim(),
+            mac: newMac.trim()
+          })
+        });
+        const data = await res.json();
+        if (data.success) {
+          showNotification('Gateway updated successfully');
+          fetchGateways();
+        } else {
+          alert('Update failed: ' + (data.error || 'Unknown error'));
+        }
+      } catch (err) {
+        alert('Update error: ' + err.message);
+      }
     }
 
     function renderAllDevicesGrid() {
@@ -1159,11 +1196,12 @@
       } else {
         container.innerHTML = unadded.map(d => {
           const did = d.gwId || d.id || d.devId;
+          const label = d.modelName ? `${d.modelName}` : did;
           return `
             <div style="background:#0f172a; padding:12px; border-radius:8px; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center; border:1px solid var(--card-border);">
               <div>
-                <div style="font-weight:600; color:var(--text);">${escapeHtml(did)}</div>
-                <div style="font-size:0.75rem; color:var(--text-muted);">IP: ${d.ip} | Version: v${d.version || '3.3'}</div>
+                <div style="font-weight:600; color:var(--text);">${escapeHtml(label)}</div>
+                <div style="font-size:0.75rem; color:var(--text-muted);">IP: <strong>${d.ip}</strong> ${d.mac ? '| MAC: <span style="color:#60a5fa;">' + d.mac + '</span>' : ''} | ID: ${did} | v${d.version || '3.3'}</div>
               </div>
               <button class="btn btn-sm" onclick="adoptDiscovered('${d.ip}', '${did}')">Adopt Gateway</button>
             </div>
@@ -1198,11 +1236,12 @@
       } else {
         container.innerHTML = unadded.map(d => {
           const did = d.id || d.gwId || d.devId;
+          const label = d.modelName ? `${d.modelName}` : did;
           return `
             <div style="background:#0f172a; padding:12px; border-radius:8px; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center; border:1px solid var(--card-border);">
               <div>
-                <div style="font-weight:600; color:var(--text);">${escapeHtml(did)}</div>
-                <div style="font-size:0.75rem; color:var(--text-muted);">IP: ${d.ip} | Version: v${d.version || '3.3'}</div>
+                <div style="font-weight:600; color:var(--text);">${escapeHtml(label)}</div>
+                <div style="font-size:0.75rem; color:var(--text-muted);">IP: <strong>${d.ip}</strong> ${d.mac ? '| MAC: <span style="color:#60a5fa;">' + d.mac + '</span>' : ''} | ID: ${did} | v${d.version || '3.3'}</div>
               </div>
               <button class="btn btn-sm" onclick="adoptDiscoveredWifi('${d.ip}', '${did}')">Adopt WiFi Device</button>
             </div>

@@ -1,6 +1,6 @@
 name: "Gavasah Tuya LAN Gateway"
 slug: "gavasah-tuya-local"
-version: "1.2.0"
+version: "1.2.1"
 description: "High-performance zero-cloud Tuya LAN bridge with realtime bidirectional MQTT discovery, persistent TCP session management, and native DALI DT6/DT8 support."
 url: "https://dealer.gavasah.com"
 arch:

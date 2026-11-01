@@ -13,6 +13,7 @@ const { WebSocketServer } = require('ws');
 const GatewayManager = require('./gateway-manager');
 const TuyaDiscovery = require('./tuya-discovery');
 const MqttBridge = require('./mqtt-bridge');
+const { resolveMacAddress, classifyTuyaEndpoint } = require('./device-detector');
 const pkg = require('../package.json');
 
 // 1. Initialize Web Express & WebSocket Server (HA Ingress Port 8099)
@@ -260,24 +261,39 @@ app.post('/api/rename', (req, res) => {
   }
 });
 
-// Commission Gateway Endpoint (with automatic key recovery via Telnet/SSH)
+// Commission Gateway Endpoint (with automatic hardware detection & key recovery)
 app.post('/api/gateway/add', async (req, res) => {
-  const { ip, name, type, autoRecover, id, local_key, mac } = req.body;
+  const { ip, name, type, autoRecover, id, local_key, mac, productKey } = req.body;
   if (!ip) {
     return res.status(400).json({ error: 'Missing gateway IP address' });
   }
 
   try {
+    // 1. Dynamic Hardware Classification & MAC Resolution
+    let resolvedMac = mac;
+    if (!resolvedMac || (resolvedMac === '00:0c:43:e1:76:29' && ip !== '192.168.1.210')) {
+      resolvedMac = await resolveMacAddress(ip);
+    }
+
+    let detectedType = type;
+    let detectedName = name;
+    if (!detectedType) {
+      const classification = await classifyTuyaEndpoint(ip, productKey);
+      detectedType = classification.type || 'zigbee_gateway';
+      if (!detectedName) detectedName = classification.name;
+    }
+
     let conf = {
       id: id || `tuya_${ip.replace(/\./g, '_')}`,
-      name: name || `Gateway ${ip}`,
+      name: detectedName || `Gateway ${ip}`,
       ip: ip,
-      mac: mac || '00:0c:43:e1:76:29',
+      mac: resolvedMac || 'unknown',
       port: 6668,
       local_key: local_key || 'K}>t}vi=XskqREC@',
       version: '3.3',
-      type: type || 'dali_gateway',
-      category: 'gateway'
+      type: detectedType || 'zigbee_gateway',
+      category: 'gateway',
+      subDevices: detectedType === 'dali_gateway' ? undefined : {}
     };
 
     if (autoRecover !== false) {
@@ -287,6 +303,8 @@ app.post('/api/gateway/add', async (req, res) => {
         if (recovered) {
           conf = { ...conf, ...recovered };
           if (name) conf.name = name;
+          if (type) conf.type = type;
+          if (mac) conf.mac = mac;
         }
       } catch (recErr) {
         console.log(`[Gateway Manager] Auto-recovery skipped: ${recErr.message}`);
@@ -300,6 +318,16 @@ app.post('/api/gateway/add', async (req, res) => {
   }
 });
 
+// Update Gateway Configuration (Name, Type, MAC, Local Key)
+app.post('/api/gateway/update', (req, res) => {
+  const { id, name, type, mac, local_key, ip, clearSubDevices } = req.body;
+  if (!id) return res.status(400).json({ error: 'Missing gateway id' });
+
+  const updated = gatewayMgr.updateGateway(id, { name, type, mac, local_key, ip, clearSubDevices });
+  if (!updated) return res.status(404).json({ error: 'Gateway not found' });
+  res.json({ success: true, gateway: updated });
+});
+
 // Delete Gateway Endpoint
 app.post('/api/gateway/delete', (req, res) => {
   const { id } = req.body;
@@ -311,18 +339,23 @@ app.post('/api/gateway/delete', (req, res) => {
 });
 
 // Commission Standalone Tuya Wi-Fi Device Endpoint
-app.post('/api/wifi/add', (req, res) => {
-  const { ip, name, id, local_key, mac, version, type } = req.body;
+app.post('/api/wifi/add', async (req, res) => {
+  const { ip, name, id, local_key, mac, version, type, productKey } = req.body;
   if (!ip) {
     return res.status(400).json({ error: 'Missing device IP address' });
   }
 
   try {
+    let resolvedMac = mac;
+    if (!resolvedMac || resolvedMac === '00:00:00:00:00:00') {
+      resolvedMac = await resolveMacAddress(ip);
+    }
+
     const devConf = {
       id: id || `tuya_wifi_${ip.replace(/\./g, '_')}`,
       name: name || `WiFi Device ${ip}`,
       ip: ip,
-      mac: mac || '00:00:00:00:00:00',
+      mac: resolvedMac || 'unknown',
       port: 6668,
       local_key: local_key || '0000000000000000',
       version: version || '3.3',

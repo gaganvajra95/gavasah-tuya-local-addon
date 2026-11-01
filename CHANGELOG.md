@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.2.1] - 2026-11-02
+### Fixed
+- **Hardware Architecture & Classification Engine (`device-detector.js`)**: Eliminated false DALI gateway misclassification and fallback MAC address duplication (`00:0c:43:e1:76:29`). Dynamically differentiates between Sunricher DALI Center (`dali_gateway`), Tuya Zigbee 3.0 Gateway (`zigbee_gateway`), and standalone Wi-Fi devices using Tuya ProductKey local catalogs, dynamic Linux `/proc/net/arp` table resolution, port probing (Telnet 23 vs TCP 6668), and online GitHub device definition fallback.
+- **Clean Zigbee Gateway Initialization**: Zigbee and generic gateways now initialize with an empty subdevice set (`subDevices: {}`) and dynamically discover real Zigbee endpoints (remotes, buttons, switches) as they communicate, rather than inheriting fake DALI lamps.
+- **Ingress Gateway Edit & Type Management**: Added inline gateway editing modal in Ingress UI (`promptEditGateway`) to update gateway friendly names, hardware types, and MAC addresses with instant `/api/gateway/update` persistence.
+- **Discovery Radar Hardware Badging**: Auto-discovery radar now highlights device hardware model names (e.g., `Tuya Zigbee Gateway`, `Sunricher DALI Center`) and resolved MAC addresses.
+
 ## [1.2.0] - 2026-11-02
 ### Added
 - **Universal Single-Name Architecture**: Unified Home Assistant MQTT device and entity naming (`has_entity_name: true`, `name: null`) so that both the device header and control cards display the exact same single friendly name across the UI without duplicates or discrepancies.

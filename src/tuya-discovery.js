@@ -6,6 +6,7 @@
 const dgram = require('dgram');
 const EventEmitter = require('events');
 const { DEFAULT_UDP_KEY, decryptECB } = require('./tuya-cipher');
+const { PRODUCT_CATALOG, readArpTableMac } = require('./device-detector');
 
 class TuyaDiscovery extends EventEmitter {
   constructor() {
@@ -72,11 +73,18 @@ class TuyaDiscovery extends EventEmitter {
     }
 
     const deviceId = parsed?.gwId || parsed?.devId || `unidentified_${rinfo.address.replace(/\./g, '_')}`;
+    const model = (parsed?.productKey && PRODUCT_CATALOG[parsed.productKey]) || null;
+    const arpMac = readArpTableMac(rinfo.address);
+
     const deviceEntry = {
       id: deviceId,
       gwId: parsed?.gwId || deviceId,
       devId: parsed?.devId || deviceId,
       ip: rinfo.address,
+      mac: arpMac || null,
+      modelName: model?.name || null,
+      modelType: model?.type || null,
+      category: model?.category || (parsed?.gwId && parsed?.gwId === parsed?.devId ? 'gateway' : 'wifi_device'),
       port: rinfo.port,
       discoveryPort: port,
       version: parsed?.version || '3.3',

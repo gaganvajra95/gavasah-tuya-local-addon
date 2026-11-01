@@ -9,6 +9,7 @@ const path = require('path');
 const net = require('net');
 const EventEmitter = require('events');
 const TuyaDevice = require('./tuya-device');
+const { resolveMacAddress, classifyTuyaEndpoint, checkPortOpen, readArpTableMac } = require('./device-detector');
 
 const DATA_DIR = process.env.DATA_DIR || '/data';
 const GATEWAYS_FILE = path.join(DATA_DIR, 'gateways.json');
@@ -124,6 +125,23 @@ class GatewayManager extends EventEmitter {
       ...conf,
       name: friendlyName
     });
+
+    // Auto-resolve dynamic hardware MAC address if missing or incorrectly cloned from fallback
+    if (!device.mac || device.mac === 'unknown' || (device.mac === '00:0c:43:e1:76:29' && device.id !== 'd7b3f345b23032557azteo')) {
+      const arpMac = readArpTableMac(device.ip);
+      if (arpMac) {
+        device.mac = arpMac;
+      } else {
+        resolveMacAddress(device.ip).then((resMac) => {
+          if (resMac && device.mac !== resMac) {
+            device.mac = resMac;
+            this.persistGateways();
+            const info = device.category === 'wifi_device' ? this.getWifiDeviceInfo(device) : this.getGatewayInfo(device);
+            this.emit('gateway-updated', info);
+          }
+        }).catch(() => {});
+      }
+    }
 
     // Apply any saved sub-device custom names
     if (device.subDevices) {
@@ -518,6 +536,25 @@ class GatewayManager extends EventEmitter {
    * Auto-extract credentials and sub-devices from OpenWrt/Telnet gateway
    */
   async autoRecoverGateway(ip) {
+    const isTelnet = await checkPortOpen(ip, 23, 1000);
+    if (!isTelnet) {
+      // Not an OpenWrt Telnet gateway - run hardware classification
+      const resolvedMac = await resolveMacAddress(ip) || readArpTableMac(ip);
+      const classification = await classifyTuyaEndpoint(ip);
+      return {
+        id: `tuya_${ip.replace(/\./g, '_')}`,
+        name: classification.name || `Tuya Gateway ${ip}`,
+        ip: ip,
+        mac: resolvedMac || null,
+        port: 6668,
+        local_key: '0000000000000000',
+        version: '3.3',
+        type: classification.type || 'zigbee_gateway',
+        category: 'gateway',
+        subDevices: {}
+      };
+    }
+
     return new Promise((resolve, reject) => {
       const client = new net.Socket();
       client.setTimeout(4000);
@@ -552,23 +589,66 @@ class GatewayManager extends EventEmitter {
 
   parseRecoveredOutput(ip, raw) {
     const macMatch = raw.match(/([0-9a-fA-F]{2}(?::[0-9a-fA-F]{2}){5})/);
-    const mac = macMatch ? macMatch[1].toLowerCase() : '00:0c:43:e1:76:29';
+    const mac = macMatch ? macMatch[1].toLowerCase() : (readArpTableMac(ip) || null);
+    const isDali = raw.includes('/bin/dali_tuya') || raw.includes('dali');
+
+    if (isDali) {
+      return {
+        id: 'd7b3f345b23032557azteo',
+        name: 'Sunricher DALI Center',
+        ip: ip,
+        mac: mac || '00:0c:43:e1:76:29',
+        port: 6668,
+        local_key: 'K}>t}vi=XskqREC@',
+        version: '3.3',
+        type: 'dali_gateway',
+        category: 'gateway',
+        subDevices: {
+          'dali_0': { devId: '010008020000', name: 'DALI Lamp 0', type: 'light_cct', dps: { '20': false, '22': 1000, '23': 500 } },
+          'dali_1': { devId: '010008020001', name: 'DALI Lamp 1', type: 'light_cct', dps: { '20': false, '22': 1000, '23': 500 } },
+          'dali_2': { devId: '010006000002', name: 'DALI Lamp 2', type: 'dimmer', dps: { '20': false, '22': 1000 } }
+        }
+      };
+    }
 
     return {
-      id: 'd7b3f345b23032557azteo',
-      name: 'Sunricher DALI Center',
+      id: `tuya_${ip.replace(/\./g, '_')}`,
+      name: `OpenWrt Gateway ${ip}`,
       ip: ip,
       mac: mac,
       port: 6668,
-      local_key: 'K}>t}vi=XskqREC@',
+      local_key: '0000000000000000',
       version: '3.3',
-      type: 'dali_gateway',
-      subDevices: {
-        'dali_0': { devId: '010008020000', name: 'DALI Lamp 0', type: 'light_cct', dps: { '20': false, '22': 1000, '23': 500 } },
-        'dali_1': { devId: '010008020001', name: 'DALI Lamp 1', type: 'light_cct', dps: { '20': false, '22': 1000, '23': 500 } },
-        'dali_2': { devId: '010006000002', name: 'DALI Lamp 2', type: 'dimmer', dps: { '20': false, '22': 1000 } }
-      }
+      type: 'generic_gateway',
+      category: 'gateway',
+      subDevices: {}
     };
+  }
+
+  /**
+   * Update gateway configuration attributes (name, type, mac, key)
+   */
+  updateGateway(id, updates = {}) {
+    const gw = this.gateways.get(id);
+    if (!gw) return null;
+
+    if (updates.name) {
+      gw.name = updates.name;
+      this.customNames[id] = updates.name;
+    }
+    if (updates.type) gw.type = updates.type;
+    if (updates.mac) gw.mac = updates.mac.toLowerCase();
+    if (updates.local_key) gw.key = updates.local_key;
+    if (updates.ip && updates.ip !== gw.ip) gw.updateIp(updates.ip);
+    if (updates.clearSubDevices) {
+      gw.subDevices = {};
+    }
+
+    this.persistGateways();
+    this.persistNames();
+    const info = this.getGatewayInfo(gw);
+    this.emit('gateway-updated', info);
+    return info;
   }
 
   getGatewayInfo(g) {
