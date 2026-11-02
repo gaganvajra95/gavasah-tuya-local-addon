@@ -123,6 +123,19 @@ class MqttBridge extends EventEmitter {
   /**
    * Publish Discovery schemas for all subdevices of a gateway or a standalone Wi-Fi device
    */
+  unpublishSubDevice(gwId, subId) {
+    if (!this.client || !this.client.connected) return;
+    const topics = [
+      `homeassistant/light/${gwId}_${subId}/config`,
+      `homeassistant/event/${gwId}_${subId}/config`,
+      `homeassistant/switch/${gwId}_${subId}/config`
+    ];
+    topics.forEach((t) => {
+      this.client.publish(t, '', { retain: true });
+    });
+    this.emit('log', `[MQTT Bridge] 🗑️ Removed duplicate discovery topic for: ${gwId}_${subId}`);
+  }
+
   publishGatewayDiscovery(gw) {
     if (!this.client || !this.client.connected) return;
 
@@ -130,6 +143,15 @@ class MqttBridge extends EventEmitter {
       this.publishWifiDeviceDiscovery(gw);
       this.publishDeviceState(gw, 'root');
       return;
+    }
+
+    // Auto-clean stale duplicate discovery topics for DALI gateway
+    if (gw.type === 'dali_gateway') {
+      ['sub_0', 'sub_1', 'sub_2', 'sub_3', 'sub_4', 'sub_5'].forEach((staleSubId) => {
+        if (!gw.subDevices || !gw.subDevices[staleSubId]) {
+          this.unpublishSubDevice(gw.id, staleSubId);
+        }
+      });
     }
 
     Object.entries(gw.subDevices || {}).forEach(([subId, info]) => {

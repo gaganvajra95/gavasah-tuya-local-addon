@@ -127,9 +127,34 @@ function applyCloudImport(gatewayMgr, mqttBridge, cloudData) {
         existing.subDevices = cg.subDevices && Object.keys(cg.subDevices).length > 0 ? cg.subDevices : existing.subDevices;
       } else if (cg.id === 'd7b3f345b23032557azteo') {
         existing.ip = '192.168.1.210';
-        existing.subDevices = { ...existing.subDevices, ...(cg.subDevices || {}) };
+        // Map cloud subdevices to canonical dali_0, dali_1, dali_2 by CID, DO NOT duplicate into sub_X
+        const cidToDali = {
+          '010008020000': 'dali_0',
+          '010008020001': 'dali_1',
+          '010006000002': 'dali_2'
+        };
+        // Clean out any duplicate sub_X copies
+        Object.keys(existing.subDevices || {}).forEach((sid) => {
+          if (sid.startsWith('sub_')) {
+            delete existing.subDevices[sid];
+            mqttBridge.unpublishSubDevice(existing.id, sid);
+          }
+        });
+        Object.entries(cg.subDevices || {}).forEach(([_, cSub]) => {
+          const matchedDaliKey = cidToDali[cSub.devId] || cidToDali[cSub.nodeId];
+          if (matchedDaliKey && existing.subDevices[matchedDaliKey]) {
+            existing.subDevices[matchedDaliKey].cloudId = cSub.id;
+            if (cSub.dps && Object.keys(cSub.dps).length > 0) {
+              existing.subDevices[matchedDaliKey].dps = { ...existing.subDevices[matchedDaliKey].dps, ...cSub.dps };
+            }
+          }
+        });
       } else if (cg.subDevices && Object.keys(cg.subDevices).length > 0) {
         existing.subDevices = { ...existing.subDevices, ...cg.subDevices };
+      }
+
+      if (typeof existing.rebuildSubDeviceMap === 'function') {
+        existing.rebuildSubDeviceMap();
       }
 
       Object.entries(existing.subDevices || {}).forEach(([subId, info]) => {

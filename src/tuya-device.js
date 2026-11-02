@@ -9,15 +9,7 @@ const EventEmitter = require('events');
 const { COMMANDS, encodeFrame, decodeFrame } = require('./tuya-cipher');
 const { inferDriverType, isRemoteAction } = require('./dali-helper');
 
-// Default initial CID mappings for Sunricher DALI Center
-const SUB_DEVICE_MAP = {
-  'dali_0': '010008020000',
-  'dali_1': '010008020001',
-  'dali_2': '010006000002',
-  '010008020000': 'dali_0',
-  '010008020001': 'dali_1',
-  '010006000002': 'dali_2'
-};
+// Instance-level subDeviceMap is used to prevent cross-gateway crosstalk
 
 class TuyaDevice extends EventEmitter {
   constructor(options) {
@@ -49,21 +41,8 @@ class TuyaDevice extends EventEmitter {
       'dali_2': { devId: '010006000002', name: 'DALI Lamp 2', type: 'dimmer', dps: { '20': false, '22': 1000 } }
     } : {});
 
-    // Populate lookup maps if gateway
-    if (this.isGateway && this.subDevices) {
-      Object.entries(this.subDevices).forEach(([subId, info]) => {
-        if (info.devId) {
-          SUB_DEVICE_MAP[subId] = info.devId;
-          SUB_DEVICE_MAP[info.devId] = subId;
-        }
-        if (info.nodeId) {
-          SUB_DEVICE_MAP[info.nodeId] = subId;
-        }
-        if (info.id) {
-          SUB_DEVICE_MAP[info.id] = subId;
-        }
-      });
-    }
+    this.subDeviceMap = {};
+    this.rebuildSubDeviceMap();
 
     this.dps = options.dps || {};            // Root device / standalone Wi-Fi DPs
     this.incomingBuffer = Buffer.alloc(0);
@@ -72,6 +51,32 @@ class TuyaDevice extends EventEmitter {
   /**
    * Dynamic DHCP update: update IP and reconnect immediately if IP changed
    */
+  rebuildSubDeviceMap() {
+    this.subDeviceMap = {};
+    if (this.type === 'dali_gateway') {
+      this.subDeviceMap['dali_0'] = '010008020000';
+      this.subDeviceMap['dali_1'] = '010008020001';
+      this.subDeviceMap['dali_2'] = '010006000002';
+      this.subDeviceMap['010008020000'] = 'dali_0';
+      this.subDeviceMap['010008020001'] = 'dali_1';
+      this.subDeviceMap['010006000002'] = 'dali_2';
+    }
+    if (this.isGateway && this.subDevices) {
+      Object.entries(this.subDevices).forEach(([subId, info]) => {
+        if (info.devId) {
+          this.subDeviceMap[subId] = info.devId;
+          this.subDeviceMap[info.devId] = subId;
+        }
+        if (info.nodeId) {
+          this.subDeviceMap[info.nodeId] = subId;
+        }
+        if (info.id) {
+          this.subDeviceMap[info.id] = subId;
+        }
+      });
+    }
+  }
+
   updateIp(newIp) {
     if (this.ip !== newIp) {
       this.emit('log', `[${this.name}] Dynamic DHCP Re-bind: ${this.ip} -> ${newIp}`);
@@ -155,7 +160,7 @@ class TuyaDevice extends EventEmitter {
         const subsToQuery = targetSub ? [targetSub] : Object.keys(this.subDevices || {});
         subsToQuery.forEach((subId) => {
           const info = this.subDevices[subId];
-          const cid = (info && info.devId) || SUB_DEVICE_MAP[subId] || subId;
+          const cid = (info && info.devId) || this.subDeviceMap[subId] || subId;
           const payload = {
             gwId: this.id,
             devId: cid,
@@ -247,14 +252,14 @@ class TuyaDevice extends EventEmitter {
         } else {
           // Gateway coordinator: route DPs to sub-devices
           if (receivedDevId && receivedDevId !== this.id) {
-            let subId = SUB_DEVICE_MAP[receivedDevId];
+            let subId = this.subDeviceMap[receivedDevId];
 
             // Auto-sync: automatically discover any new sub-device (DALI or Zigbee endpoint)
             if (!subId) {
               const nextIdx = Object.keys(this.subDevices).length;
               subId = `dev_${nextIdx}`;
-              SUB_DEVICE_MAP[receivedDevId] = subId;
-              SUB_DEVICE_MAP[subId] = receivedDevId;
+              this.subDeviceMap[receivedDevId] = subId;
+              this.subDeviceMap[subId] = receivedDevId;
 
               const detectedType = inferDriverType(receivedDps);
               this.subDevices[subId] = {
@@ -348,7 +353,7 @@ class TuyaDevice extends EventEmitter {
       this.emit('status', { id: this.id, dps: { ...this.dps }, category: 'wifi_device' });
     } else {
       // Gateway sub-device
-      let targetDevId = SUB_DEVICE_MAP[subId] || subId || this.id;
+      let targetDevId = this.subDeviceMap[subId] || subId || this.id;
 
       const payload = {
         gwId: this.id,
@@ -362,7 +367,7 @@ class TuyaDevice extends EventEmitter {
       const frame = encodeFrame(COMMANDS.CONTROL, payload, this.key, this.version, this.seq++);
       this.send(frame, COMMANDS.CONTROL, payload);
 
-      const resolvedSub = SUB_DEVICE_MAP[targetDevId] || subId;
+      const resolvedSub = this.subDeviceMap[targetDevId] || subId;
       this.emit('log', `[${this.name}] TX Command -> [${resolvedSub}] (${targetDevId}): ${JSON.stringify(dps)}`);
 
       // Optimistically update local cache and emit state

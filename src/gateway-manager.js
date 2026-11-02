@@ -72,18 +72,39 @@ class GatewayManager extends EventEmitter {
     // Sanitize saved entries to only local private subnets
     saved = (saved || []).filter(g => g.ip && (g.ip.startsWith('192.168.') || g.ip.startsWith('10.') || g.ip.startsWith('172.') || g.ip === '127.0.0.1'));
 
-    // Correct hardware mapping for 192.168.1.194
+    // Correct hardware mapping and purge duplicates for both gateways
     let hasZigbee = false;
     saved = saved.map(g => {
-      if (g.ip === '192.168.1.194') {
+      if (g.ip === '192.168.1.194' || g.id === 'd73312627d4f66c788gsrs') {
         hasZigbee = true;
         return {
           ...g,
           id: 'd73312627d4f66c788gsrs',
-          name: this.customNames['d73312627d4f66c788gsrs'] || 'Tuya Zigbee Gateway',
+          ip: '192.168.1.194',
+          name: this.customNames['d73312627d4f66c788gsrs'] || 'Drasis Zigbee Gateway',
           type: 'zigbee_gateway',
           local_key: '{X?c$;`FigG4no3`',
           subDevices: g.subDevices && Object.keys(g.subDevices).length > 0 ? g.subDevices : DEFAULT_GATEWAYS[1].subDevices
+        };
+      } else if (g.ip === '192.168.1.210' || g.id === 'd7b3f345b23032557azteo') {
+        // Enforce canonical dali_0, dali_1, dali_2 only - purge all duplicate sub_X copies!
+        const cleanDaliSubs = {};
+        Object.entries(g.subDevices || {}).forEach(([sid, info]) => {
+          if (sid.startsWith('dali_')) {
+            cleanDaliSubs[sid] = info;
+          }
+        });
+        if (Object.keys(cleanDaliSubs).length === 0) {
+          cleanDaliSubs['dali_0'] = DEFAULT_GATEWAYS[0].subDevices['dali_0'];
+          cleanDaliSubs['dali_1'] = DEFAULT_GATEWAYS[0].subDevices['dali_1'];
+          cleanDaliSubs['dali_2'] = DEFAULT_GATEWAYS[0].subDevices['dali_2'];
+        }
+        return {
+          ...g,
+          id: 'd7b3f345b23032557azteo',
+          ip: '192.168.1.210',
+          type: 'dali_gateway',
+          subDevices: cleanDaliSubs
         };
       }
       return g;
