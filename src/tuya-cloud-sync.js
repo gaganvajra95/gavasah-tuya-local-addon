@@ -99,25 +99,13 @@ function applyCloudImport(gatewayMgr, mqttBridge, cloudData) {
 
   // 1. Process Gateways & inject real local_keys & Zigbee remotes
   gateways.forEach((cg) => {
-    let existing = gatewayMgr.gateways.get(cg.id);
-
-    // If not found by exact ID, check by IP, placeholder ID, or Tuya Zigbee signature
-    if (!existing) {
-      for (const g of gatewayMgr.gateways.values()) {
-        if (g.id === cg.id || g.ip === cg.ip || (g.ip === '192.168.1.194' && (cg.id === 'd73312627d4f66c788gsrs' || cg.type === 'zigbee_gateway')) || g.id === 'tuya_192_168_1_194') {
-          existing = g;
-          break;
-        }
-      }
-    }
-
-    if (!existing) {
-      for (const g of gatewayMgr.gateways.values()) {
-        if (g.name.toLowerCase().includes(cg.name.toLowerCase()) || cg.name.toLowerCase().includes(g.name.toLowerCase())) {
-          existing = g;
-          break;
-        }
-      }
+    let existing = null;
+    if (cg.id === 'd73312627d4f66c788gsrs' || cg.name.toLowerCase().includes('drasis') || cg.name.toLowerCase().includes('zigbee')) {
+      existing = gatewayMgr.gateways.get('d73312627d4f66c788gsrs') || Array.from(gatewayMgr.gateways.values()).find(g => g.ip === '192.168.1.194');
+    } else if (cg.id === 'd7b3f345b23032557azteo' || cg.name.toLowerCase().includes('dali')) {
+      existing = gatewayMgr.gateways.get('d7b3f345b23032557azteo') || Array.from(gatewayMgr.gateways.values()).find(g => g.ip === '192.168.1.210');
+    } else if (cg.ip && (cg.ip.startsWith('192.168.') || cg.ip.startsWith('10.') || cg.ip.startsWith('172.'))) {
+      existing = Array.from(gatewayMgr.gateways.values()).find(g => g.ip === cg.ip);
     }
 
     if (existing) {
@@ -131,22 +119,28 @@ function applyCloudImport(gatewayMgr, mqttBridge, cloudData) {
       }
 
       existing.name = cg.name || existing.name;
-      existing.type = cg.type || (existing.type === 'dali_gateway' && !cg.name.toLowerCase().includes('dali') ? 'zigbee_gateway' : existing.type);
+      existing.type = cg.id === 'd7b3f345b23032557azteo' ? 'dali_gateway' : 'zigbee_gateway';
       existing.key = cg.local_key;
 
-      // Update subDevices if present
-      if (cg.subDevices && Object.keys(cg.subDevices).length > 0) {
+      if (cg.id === 'd73312627d4f66c788gsrs') {
+        existing.ip = '192.168.1.194';
+        existing.subDevices = cg.subDevices && Object.keys(cg.subDevices).length > 0 ? cg.subDevices : existing.subDevices;
+      } else if (cg.id === 'd7b3f345b23032557azteo') {
+        existing.ip = '192.168.1.210';
+        existing.subDevices = { ...existing.subDevices, ...(cg.subDevices || {}) };
+      } else if (cg.subDevices && Object.keys(cg.subDevices).length > 0) {
         existing.subDevices = { ...existing.subDevices, ...cg.subDevices };
-        Object.entries(cg.subDevices).forEach(([subId, info]) => {
-          result.discoveredRemotes.push({
-            gateway: existing.name,
-            subId,
-            name: info.name,
-            type: info.type
-          });
-          mqttBridge.publishSubDeviceDiscovery(existing, subId, info);
-        });
       }
+
+      Object.entries(existing.subDevices || {}).forEach(([subId, info]) => {
+        result.discoveredRemotes.push({
+          gateway: existing.name,
+          subId,
+          name: info.name,
+          type: info.type
+        });
+        mqttBridge.publishSubDeviceDiscovery(existing, subId, info);
+      });
 
       gatewayMgr.persistGateways();
       existing.destroy();
@@ -160,27 +154,10 @@ function applyCloudImport(gatewayMgr, mqttBridge, cloudData) {
         type: existing.type,
         subDeviceCount: Object.keys(existing.subDevices || {}).length
       });
-    } else if (cg.ip && (cg.ip.startsWith('192.168.') || cg.ip.startsWith('10.') || cg.ip.startsWith('172.'))) {
-      // Add as new gateway only if on a local private network
-      const newGw = gatewayMgr.addGateway({
-        id: cg.id,
-        name: cg.name,
-        ip: cg.ip,
-        mac: cg.mac || 'unknown',
-        local_key: cg.local_key,
-        type: cg.type || 'zigbee_gateway',
-        subDevices: cg.subDevices || {}
-      }, true);
-
-      result.addedGateways.push({
-        id: newGw.id,
-        name: newGw.name,
-        ip: newGw.ip
-      });
     }
   });
 
-  // 2. Process Standalone Wi-Fi Devices
+    // 2. Process Standalone Wi-Fi Devices
   wifiDevices.forEach((cw) => {
     if (cw.ip && cw.local_key) {
       const existing = gatewayMgr.gateways.get(cw.id);

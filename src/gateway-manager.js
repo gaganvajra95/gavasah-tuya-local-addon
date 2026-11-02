@@ -69,10 +69,34 @@ class GatewayManager extends EventEmitter {
       }
     }
 
-    if (!saved || saved.length === 0) {
-      saved = [DEFAULT_GATEWAY];
-      this.persistGateways(saved);
+    // Sanitize saved entries to only local private subnets
+    saved = (saved || []).filter(g => g.ip && (g.ip.startsWith('192.168.') || g.ip.startsWith('10.') || g.ip.startsWith('172.') || g.ip === '127.0.0.1'));
+
+    // Correct hardware mapping for 192.168.1.194
+    let hasZigbee = false;
+    saved = saved.map(g => {
+      if (g.ip === '192.168.1.194') {
+        hasZigbee = true;
+        return {
+          ...g,
+          id: 'd73312627d4f66c788gsrs',
+          name: this.customNames['d73312627d4f66c788gsrs'] || 'Tuya Zigbee Gateway',
+          type: 'zigbee_gateway',
+          local_key: '{X?c$;`FigG4no3`',
+          subDevices: g.subDevices && Object.keys(g.subDevices).length > 0 ? g.subDevices : DEFAULT_GATEWAYS[1].subDevices
+        };
+      }
+      return g;
+    });
+
+    if (!hasZigbee) {
+      saved.push(DEFAULT_GATEWAYS[1]);
     }
+    if (!saved.some(g => g.id === 'd7b3f345b23032557azteo')) {
+      saved.unshift(DEFAULT_GATEWAYS[0]);
+    }
+
+    this.persistGateways(saved);
 
     saved.forEach((gConf) => {
       this.addGateway(gConf, false);
