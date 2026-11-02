@@ -630,6 +630,7 @@
           </div>
 
           <button class="btn" id="btn-start-qr" style="width: 100%; padding: 10px;" onclick="startCloudQrLogin()">🚀 Generate Login QR Code</button>
+          <button class="btn btn-secondary" id="btn-sync-now" style="width: 100%; padding: 10px; margin-top: 8px;" onclick="syncNowFromSession()">⚡ Re-Sync Active Cloud Session (One-Click)</button>
 
           <!-- QR Code Display Box -->
           <div id="qr-display-box" style="display: none; margin-top: 20px; text-align: center; background: #090d16; border: 1px solid var(--card-border); border-radius: 8px; padding: 20px;">
@@ -1524,6 +1525,32 @@
         }
       } catch (err) {
         alert('Sync error: ' + err.message);
+      }
+    }
+
+    async function syncNowFromSession() {
+      const btn = document.getElementById('btn-sync-now');
+      btn.disabled = true;
+      btn.innerText = '⏳ Syncing from Tuya Session...';
+      addLog('CLOUD', 'Fetching and classifying devices from active Tuya Cloud session...');
+
+      try {
+        const res = await fetch(`${basePath}api/cloud/sync-now`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
+        });
+        const data = await res.json();
+        if (data.success) {
+          showSyncResults(data);
+          refreshData();
+        } else {
+          alert('Sync failed: ' + (data.error || 'No active session found. Please scan QR code first.'));
+        }
+      } catch (err) {
+        alert('Sync error: ' + err.message);
+      } finally {
+        btn.disabled = false;
+        btn.innerText = '⚡ Re-Sync Active Cloud Session (One-Click)';
       }
     }
 

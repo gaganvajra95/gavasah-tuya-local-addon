@@ -123,8 +123,13 @@ const KNOWN_DALI_PROFILES = {
 function isRemoteAction(dps = {}) {
   const remoteKeywords = ['single', 'double', 'hold', 'click', 'rotate_left', 'rotate_right', 'press', 'alarm'];
   for (const [k, val] of Object.entries(dps)) {
+    let buttonNum = k;
+    const match = k.match(/(\d+)/);
+    if (match) {
+      buttonNum = match[1];
+    }
     if (typeof val === 'string' && remoteKeywords.some(kw => val.toLowerCase().includes(kw))) {
-      return { isRemote: true, button: k, action: val };
+      return { isRemote: true, button: buttonNum, action: val };
     }
     // Scene switch button numbers where DP is 1,2,3,4 and not 20/22
     if (!dps['20'] && !dps['22'] && ['1', '2', '3', '4'].includes(k) && typeof val === 'string') {

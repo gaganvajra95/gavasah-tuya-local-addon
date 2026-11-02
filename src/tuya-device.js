@@ -56,6 +56,12 @@ class TuyaDevice extends EventEmitter {
           SUB_DEVICE_MAP[subId] = info.devId;
           SUB_DEVICE_MAP[info.devId] = subId;
         }
+        if (info.nodeId) {
+          SUB_DEVICE_MAP[info.nodeId] = subId;
+        }
+        if (info.id) {
+          SUB_DEVICE_MAP[info.id] = subId;
+        }
       });
     }
 
@@ -84,6 +90,12 @@ class TuyaDevice extends EventEmitter {
   connect() {
     if (this.socket) {
       this.destroy();
+    }
+
+    // Guard: Never attempt local TCP sockets to public/external WAN IP addresses
+    if (!this.ip || (!this.ip.startsWith('192.168.') && !this.ip.startsWith('10.') && !this.ip.startsWith('172.') && this.ip !== '127.0.0.1')) {
+      this.emit('log', `[${this.name}] Awaiting local LAN IP discovery (current IP ${this.ip || 'none'} is public WAN).`);
+      return;
     }
 
     this.emit('log', `[${this.name}] Connecting to ${this.ip}:${this.port}...`);

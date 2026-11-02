@@ -101,10 +101,10 @@ function applyCloudImport(gatewayMgr, mqttBridge, cloudData) {
   gateways.forEach((cg) => {
     let existing = gatewayMgr.gateways.get(cg.id);
 
-    // If not found by exact ID, try matching by IP or existing Tuya gateway ID
-    if (!existing && cg.ip) {
+    // If not found by exact ID, check by IP, placeholder ID, or Tuya Zigbee signature
+    if (!existing) {
       for (const g of gatewayMgr.gateways.values()) {
-        if (g.ip === cg.ip) {
+        if (g.id === cg.id || g.ip === cg.ip || (g.ip === '192.168.1.194' && (cg.id === 'd73312627d4f66c788gsrs' || cg.type === 'zigbee_gateway')) || g.id === 'tuya_192_168_1_194') {
           existing = g;
           break;
         }
@@ -112,9 +112,8 @@ function applyCloudImport(gatewayMgr, mqttBridge, cloudData) {
     }
 
     if (!existing) {
-      // Check if tuya_192_168_1_194 matches cg.id or cg.name
       for (const g of gatewayMgr.gateways.values()) {
-        if (g.name.includes(cg.name) || cg.name.includes(g.name) || (g.ip === '192.168.1.194' && cg.type === 'zigbee_gateway')) {
+        if (g.name.toLowerCase().includes(cg.name.toLowerCase()) || cg.name.toLowerCase().includes(g.name.toLowerCase())) {
           existing = g;
           break;
         }
@@ -122,7 +121,17 @@ function applyCloudImport(gatewayMgr, mqttBridge, cloudData) {
     }
 
     if (existing) {
-      console.log(`[Cloud Sync] 🔑 Binding real local_key for ${existing.name} (${existing.id}) -> Key: ${cg.local_key}`);
+      console.log(`[Cloud Sync] 🔑 Binding real local_key and hardware ID for ${existing.name} (${existing.id} -> ${cg.id}) -> Key: ${cg.local_key}`);
+      
+      // Update ID in gateway map if it was a placeholder
+      if (existing.id !== cg.id) {
+        gatewayMgr.gateways.delete(existing.id);
+        existing.id = cg.id;
+        gatewayMgr.gateways.set(cg.id, existing);
+      }
+
+      existing.name = cg.name || existing.name;
+      existing.type = cg.type || (existing.type === 'dali_gateway' && !cg.name.toLowerCase().includes('dali') ? 'zigbee_gateway' : existing.type);
       existing.key = cg.local_key;
 
       // Update subDevices if present
@@ -148,14 +157,15 @@ function applyCloudImport(gatewayMgr, mqttBridge, cloudData) {
         name: existing.name,
         ip: existing.ip,
         mac: existing.mac,
+        type: existing.type,
         subDeviceCount: Object.keys(existing.subDevices || {}).length
       });
-    } else {
-      // Add as new gateway
+    } else if (cg.ip && (cg.ip.startsWith('192.168.') || cg.ip.startsWith('10.') || cg.ip.startsWith('172.'))) {
+      // Add as new gateway only if on a local private network
       const newGw = gatewayMgr.addGateway({
         id: cg.id,
         name: cg.name,
-        ip: cg.ip || '192.168.1.194',
+        ip: cg.ip,
         mac: cg.mac || 'unknown',
         local_key: cg.local_key,
         type: cg.type || 'zigbee_gateway',
@@ -200,10 +210,26 @@ function applyCloudImport(gatewayMgr, mqttBridge, cloudData) {
   };
 }
 
+/**
+ * Dump all raw device data from current session for inspection
+ */
+async function dumpSession() {
+  return runWorker(['dump_session']);
+}
+
+/**
+ * Re-sync and classify devices from current active session
+ */
+async function syncSession() {
+  return runWorker(['sync_session']);
+}
+
 module.exports = {
   startQrLogin,
   pollQrLogin,
   syncDeveloper,
+  dumpSession,
+  syncSession,
   applyCloudImport
 };
 

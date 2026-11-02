@@ -225,7 +225,7 @@ class MqttBridge extends EventEmitter {
     const friendlyName = info.name || `${gw.name} ${subId}`;
 
     // If device is a Remote or Scene Controller, publish as HA Event Entity
-    if (type === 'remote_button') {
+    if (type === 'remote_button' || type === 'remote' || type === 'scene_switch' || type === 'button') {
       const discoveryTopic = `homeassistant/event/${gw.id}_${subId}/config`;
       const payload = {
         name: null,

@@ -126,84 +126,84 @@ def fetch_devices_from_session(session):
         for d in devs:
             all_raw.append(d)
 
-    # Process into clean structured inventory
+    # Process into clean structured inventory using unified matcher
+    return _process_raw_devices(all_raw)
+
+def _process_raw_devices(raw_devices):
     gateways = []
     wifi_devices = []
-    sub_devices_by_parent = {}
+    subs = []
 
-    for d in all_raw:
-        dev_id = getattr(d, "id", None)
-        name = getattr(d, "name", dev_id)
-        local_key = getattr(d, "local_key", "")
-        ip = getattr(d, "ip", "")
-        category = getattr(d, "category", "")
-        is_sub = getattr(d, "sub", False)
-        product_id = getattr(d, "product_id", "")
-        parent_id = getattr(d, "parent_id", None) or getattr(d, "mesh_id", None) or getattr(d, "node_id", None)
+    for d in raw_devices:
+        dev_id = getattr(d, "id", None) if not isinstance(d, dict) else d.get("id")
+        name = getattr(d, "name", dev_id) if not isinstance(d, dict) else d.get("name", dev_id)
+        local_key = getattr(d, "local_key", "") if not isinstance(d, dict) else d.get("local_key", "")
+        ip = getattr(d, "ip", "") if not isinstance(d, dict) else d.get("ip", "")
+        cat = (getattr(d, "category", "") if not isinstance(d, dict) else d.get("category", "") or "").lower()
+        product_name = (getattr(d, "product_name", "") if not isinstance(d, dict) else d.get("product_name", "") or "").lower()
+        is_sub = getattr(d, "sub", False) if not isinstance(d, dict) else d.get("sub", False)
+        node_id = getattr(d, "node_id", None) if not isinstance(d, dict) else d.get("node_id")
+        parent_id = getattr(d, "parent_id", None) if not isinstance(d, dict) else d.get("parent_id")
+        status = getattr(d, "status", {}) if not isinstance(d, dict) else d.get("status", {})
 
         entry = {
             "id": dev_id,
             "name": name,
             "local_key": local_key,
             "ip": ip,
-            "category": category,
-            "product_id": product_id,
+            "category": cat,
+            "product_name": product_name,
             "is_sub": is_sub,
-            "parent_id": parent_id
+            "node_id": node_id,
+            "parent_id": parent_id,
+            "status": status or {}
         }
 
         if is_sub:
-            pid = parent_id or "unknown_gw"
-            if pid not in sub_devices_by_parent:
-                sub_devices_by_parent[pid] = []
-            sub_devices_by_parent[pid].append(entry)
-        else:
-            # Check if gateway (Zigbee coordinator, DALI gateway, multi-mode gateway)
-            if category in ("wg2", "wg", "mesh", "gateway") or "gateway" in name.lower() or "coordinator" in name.lower():
-                entry["type"] = "zigbee_gateway"
-                gateways.append(entry)
+            subs.append(entry)
+        elif cat in ("wg2", "wg", "zgw", "wf_zg", "znwg", "mesh", "gateway") or "gateway" in name.lower() or "gateway" in product_name or "coordinator" in name.lower():
+            if "dali" in name.lower() or "dali" in product_name:
+                entry["type"] = "dali_gateway"
             else:
-                entry["type"] = "wifi_device"
-                wifi_devices.append(entry)
+                entry["type"] = "zigbee_gateway"
+            gateways.append(entry)
+        else:
+            entry["type"] = "wifi_device"
+            wifi_devices.append(entry)
 
-    # Attach subdevices to gateways
+    # Match sub-devices to their gateway
     for gw in gateways:
         gw["subDevices"] = {}
-        gw_id = gw["id"]
-        # Find matching subdevices
-        matching_subs = sub_devices_by_parent.get(gw_id, [])
-        for idx, sub in enumerate(matching_subs):
+        gw_key = gw.get("local_key")
+        gw_id = gw.get("id")
+
+        matched = [s for s in subs if (gw_key and s.get("local_key") == gw_key) or (gw_id and s.get("parent_id") == gw_id)]
+        for idx, sub in enumerate(matched):
+            sub_cat = sub.get("category", "")
+            sub_name = sub.get("name", "")
+            if sub_cat in ("wxkg", "ykq") or "remote" in sub_name.lower() or "scene" in sub_name.lower():
+                sub_type = "remote_button"
+            elif sub_cat in ("dj", "tgq", "tgkg") or "light" in sub_name.lower() or "cct" in sub_name.lower():
+                sub_type = "light_cct"
+            elif "dimmer" in sub_name.lower() or "dim" in sub_name.lower():
+                sub_type = "dimmer"
+            elif sub_cat in ("kg", "tdq", "cjkg"):
+                sub_type = "switch"
+            elif sub_cat in ("hps", "sensor"):
+                sub_type = "sensor"
+            else:
+                sub_type = "remote_button" if "switch" in sub_name.lower() and "scene" in sub_name.lower() else "switch"
+
             sub_key = f"sub_{idx}"
-            sub_type = "remote" if sub["category"] in ("wxkg", "kg", "sensor") or "remote" in sub["name"].lower() else "switch"
             gw["subDevices"][sub_key] = {
-                "devId": sub["id"],
+                "id": sub["id"],
+                "devId": sub["node_id"] or sub["id"],
+                "nodeId": sub["node_id"],
                 "name": sub["name"],
                 "type": sub_type,
                 "category": sub["category"],
-                "dps": {}
+                "dps": sub.get("status") or {}
             }
-
-    # If subdevices exist whose parent wasn't categorized as gateway, make that parent a gateway
-    for pid, subs in sub_devices_by_parent.items():
-        if pid != "unknown_gw" and not any(g["id"] == pid for g in gateways):
-            # Find parent in wifi_devices and promote to gateway
-            for i, w in enumerate(wifi_devices):
-                if w["id"] == pid:
-                    w["type"] = "zigbee_gateway"
-                    w["subDevices"] = {}
-                    for idx, sub in enumerate(subs):
-                        sub_key = f"sub_{idx}"
-                        sub_type = "remote" if sub["category"] in ("wxkg", "kg", "sensor") or "remote" in sub["name"].lower() else "switch"
-                        w["subDevices"][sub_key] = {
-                            "devId": sub["id"],
-                            "name": sub["name"],
-                            "type": sub_type,
-                            "category": sub["category"],
-                            "dps": {}
-                        }
-                    gateways.append(w)
-                    wifi_devices.pop(i)
-                    break
 
     return {
         "success": True,
@@ -281,6 +281,60 @@ def sync_developer(api_key, api_secret, region="us", sample_id=None):
     except Exception as e:
         return {"success": False, "error": str(e)}
 
+def sync_session():
+    """Sync and classify devices directly from existing active session"""
+    dump_res = dump_session()
+    if not dump_res.get("success"):
+        return dump_res
+    return _process_raw_devices(dump_res.get("devices", []))
+
+def dump_session():
+    if not os.path.isfile(SESSION_FILE):
+        return {"success": False, "error": f"Session file not found at {SESSION_FILE}"}
+    try:
+        with open(SESSION_FILE, "r", encoding="utf-8") as f:
+            session = json.load(f)
+    except Exception as e:
+        return {"success": False, "error": f"Failed to load session: {e}"}
+
+    from tuya_sharing import Manager
+    saver = _DummySaver(session)
+    manager = Manager(
+        session.get("client_id", CLIENT_ID),
+        session["user_code"],
+        session["terminal_id"],
+        session["endpoint"],
+        session["token_info"],
+        saver
+    )
+    homes = manager.home_repository.query_homes()
+    raw_devices = []
+    for home in homes:
+        devs = manager.device_repository.query_devices_by_home(home.id)
+        for d in devs:
+            raw_devices.append({
+                "home_id": home.id,
+                "home_name": home.name,
+                "id": getattr(d, "id", None),
+                "name": getattr(d, "name", None),
+                "category": getattr(d, "category", None),
+                "product_id": getattr(d, "product_id", None),
+                "product_name": getattr(d, "product_name", None),
+                "local_key": getattr(d, "local_key", None),
+                "sub": getattr(d, "sub", None),
+                "node_id": getattr(d, "node_id", None),
+                "parent_id": getattr(d, "parent_id", None) or getattr(d, "mesh_id", None),
+                "ip": getattr(d, "ip", None),
+                "online": getattr(d, "online", None),
+                "status": getattr(d, "status", None)
+            })
+    return {
+        "success": True,
+        "homes": [{"id": h.id, "name": h.name} for h in homes],
+        "device_count": len(raw_devices),
+        "devices": raw_devices
+    }
+
 if __name__ == '__main__':
     if len(sys.argv) < 2:
         print(json.dumps({"error": "Missing command argument"}))
@@ -298,6 +352,14 @@ if __name__ == '__main__':
         token = sys.argv[2] if len(sys.argv) > 2 else ""
         user_code = sys.argv[3] if len(sys.argv) > 3 else ""
         res = poll_qr(token, user_code)
+        print(json.dumps(res))
+
+    elif cmd == "sync_session":
+        res = sync_session()
+        print(json.dumps(res))
+
+    elif cmd == "dump_session":
+        res = dump_session()
         print(json.dumps(res))
 
     elif cmd == "sync_developer":

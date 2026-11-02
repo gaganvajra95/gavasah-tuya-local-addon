@@ -400,6 +400,16 @@ app.post('/api/gateway/rescan', async (req, res) => {
   }
 });
 
+// Dump raw cloud session devices for diagnostics
+app.get('/api/cloud/dump', async (req, res) => {
+  try {
+    const result = await cloudSync.dumpSession();
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 // Resolve Gateway IP by MAC Address (Manual Trigger & Override)
 app.post('/api/gateway/resolve-mac', async (req, res) => {
   const { id } = req.body;
@@ -467,7 +477,40 @@ app.post('/api/cloud/developer-sync', async (req, res) => {
   }
 });
 
+// Re-sync and apply devices from active Tuya session
+app.post('/api/cloud/sync-now', async (req, res) => {
+  try {
+    const syncRes = await cloudSync.syncSession();
+    if (syncRes && (syncRes.status === 'authorized' || syncRes.success)) {
+      const applyRes = cloudSync.applyCloudImport(gatewayMgr, mqttBridge, syncRes);
+      return res.json({
+        success: true,
+        applied: applyRes,
+        gateways: syncRes.gateways,
+        wifiDevices: syncRes.wifiDevices
+      });
+    }
+    res.json(syncRes);
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 const PORT = process.env.PORT || 8199;
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`[Ingress] Web UI active on http://0.0.0.0:${PORT}`);
+
+  // Auto-sync devices if cloud session already exists
+  setTimeout(async () => {
+    try {
+      console.log('[Cloud Sync] Checking for existing active Tuya Cloud session...');
+      const sessionSync = await cloudSync.syncSession();
+      if (sessionSync && sessionSync.success) {
+        console.log(`[Cloud Sync] 🚀 Auto-imported ${sessionSync.gateways?.length || 0} gateways and sub-devices from active session.`);
+        cloudSync.applyCloudImport(gatewayMgr, mqttBridge, sessionSync);
+      }
+    } catch (e) {
+      console.log('[Cloud Sync] Auto-sync skipped (no session yet or offline):', e.message);
+    }
+  }, 3000);
 });
